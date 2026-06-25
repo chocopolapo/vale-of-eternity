@@ -59,8 +59,8 @@ function startPhaseTimer(roomID, phase) {
         const r = activeRooms[roomID];
         if (!r || r.currentServerPhase !== phase) return;
         if (phase === 'DRAFT') forceEndDraftPhase(roomID);
-        else if (phase === 'ACTION') finishActionPhase(roomID, `⏰ [시간 종료] 120초가 지나 액션 단계가 강제로 종료되어 환기 단계로 넘어갑니다.`);
-        else if (phase === 'REFRESH') finishRefreshPhaseAndContinue(roomID);
+        else if (phase === 'ACTION') forceEndCurrentPlayerActionTurn(roomID);
+        else if (phase === 'REFRESH') forceEndCurrentPlayerRefreshTurn(roomID);
     }, durationMs);
 }
 
@@ -75,6 +75,63 @@ function forceEndDraftPhase(roomID) {
         logMessage: `⏰ [시간 종료] 60초가 지나 드래프트 단계가 강제로 종료됩니다.`
     });
     startPhaseTimer(roomID, 'ACTION');
+}
+
+// ⏰ [강제 마감 - 액션 인당] 현재 플레이어의 120초가 만료되면 해당 플레이어의 턴을 강제로 넘긴다.
+// 마지막 플레이어면 환기 단계로 전환, 아니면 다음 플레이어에게 새 120초 타이머를 시작한다.
+function forceEndCurrentPlayerActionTurn(roomID) {
+    const room = activeRooms[roomID];
+    if (!room || room.turnSequence.length === 0) return;
+
+    if (!room.actionFinishedCount) room.actionFinishedCount = 0;
+    const currentTurnPlayer = room.turnSequence[room.currentTurnOwnerIndex];
+    room.actionFinishedCount++;
+
+    if (room.actionFinishedCount >= room.turnSequence.length) {
+        finishActionPhase(roomID, `⏰ [시간 종료] ${currentTurnPlayer.nickname}님의 120초가 지나 액션 단계가 종료됩니다.`);
+    } else {
+        room.currentTurnOwnerIndex = (room.currentTurnOwnerIndex + 1) % room.turnSequence.length;
+        const nextTurnPlayer = room.turnSequence[room.currentTurnOwnerIndex];
+
+        io.to(roomID).emit('sync_turnUpdate', {
+            currentTurnOwnerID: nextTurnPlayer.id,
+            currentTurnOwnerNickname: nextTurnPlayer.nickname,
+            marketCards: room.marketCards,
+            logMessage: `⏰ [시간 종료] ${currentTurnPlayer.nickname}님의 120초가 지나 턴이 강제로 넘어갑니다. 다음 차례: [ ${nextTurnPlayer.nickname} ]`
+        });
+
+        startPhaseTimer(roomID, 'ACTION');
+    }
+}
+
+// ⏰ [강제 마감 - 환기 인당] 현재 플레이어의 60초가 만료되면 해당 플레이어의 환기 턴을 강제로 넘긴다.
+// 마지막 플레이어면 라운드 마감 판정, 아니면 다음 플레이어에게 새 60초 타이머를 시작한다.
+function forceEndCurrentPlayerRefreshTurn(roomID) {
+    const room = activeRooms[roomID];
+    if (!room || room.turnSequence.length === 0) return;
+
+    if (!room.refreshFinishedPlayers) room.refreshFinishedPlayers = [];
+    const currentTurnPlayer = room.turnSequence[room.currentTurnOwnerIndex];
+
+    if (!room.refreshFinishedPlayers.includes(currentTurnPlayer.id)) {
+        room.refreshFinishedPlayers.push(currentTurnPlayer.id);
+    }
+
+    if (room.refreshFinishedPlayers.length >= room.players.length) {
+        finishRefreshPhaseAndContinue(roomID);
+    } else {
+        room.currentTurnOwnerIndex = (room.currentTurnOwnerIndex + 1) % room.turnSequence.length;
+        const nextTurnPlayer = room.turnSequence[room.currentTurnOwnerIndex];
+
+        io.to(roomID).emit('sync_turnUpdate', {
+            currentTurnOwnerID: nextTurnPlayer.id,
+            currentTurnOwnerNickname: nextTurnPlayer.nickname,
+            marketCards: room.marketCards,
+            logMessage: `⏰ [시간 종료] ${currentTurnPlayer.nickname}님의 60초가 지나 환기 턴이 강제로 넘어갑니다. 다음 차례: [ ${nextTurnPlayer.nickname} ]`
+        });
+
+        startPhaseTimer(roomID, 'REFRESH');
+    }
 }
 
 // 🔄 [액션 단계 마감] 전원이 턴을 끝냈을 때(자연 종료) 또는 120초가 지났을 때(강제 종료) 공통으로 호출되어 환기 단계를 연다.
@@ -666,6 +723,7 @@ io.on('connection', (socket) => {
                 marketCards: room.marketCards, // 턴 전환 패킷에도 마켓 동기화 락 추가!
                 logMessage: `⏱️ [턴 전환] ${pName}님이 턴을 넘겼습니다. 다음 차례: [ ${nextTurnPlayer.nickname} ]`
             });
+            startPhaseTimer(roomID, 'ACTION');
         }
     });
 
@@ -700,6 +758,7 @@ io.on('connection', (socket) => {
                 marketCards: room.marketCards,
                 logMessage: `⏱️ [환기 턴 전환] 다음 정산 차례는 [ ${nextTurnPlayer.nickname} ] 님입니다.`
             });
+            startPhaseTimer(roomID, 'REFRESH');
         }
     });
 
