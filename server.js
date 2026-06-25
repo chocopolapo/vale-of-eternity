@@ -698,6 +698,10 @@ io.on('connection', (socket) => {
                 cardName: targetCard.name,
                 serverMarkersPlaced: room.markersPlaced
             });
+
+            if (room.currentServerPhase === 'DRAFT') {
+                forceEndCurrentPlayerDraftTurn(roomID);
+            }
         }
     });
 
