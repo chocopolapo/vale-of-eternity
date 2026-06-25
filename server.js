@@ -64,20 +64,20 @@ function startPhaseTimer(roomID, phase) {
     }, durationMs);
 }
 
-// ⏰ [강제 마감 - 드래프트 인당] 현재 플레이어의 60초가 만료되거나 완료 버튼을 누르면 호출된다.
-// 마지막 플레이어면 액션 단계로 전환, 아니면 다음 플레이어에게 새 60초 타이머를 시작한다.
+// 🐍 [스네이크 드래프트] 3인 기준 6픽 순서: P1→P2→P3→P3→P2→P1
+// turnSequence 인덱스 기준이므로 선플레이어 순서를 그대로 따른다.
+const SNAKE_DRAFT_SEQUENCE = [0, 1, 2, 2, 1, 0];
+
+// ⏰ [강제 마감 - 드래프트 인당] 현재 픽이 끝나면(찜 완료 or 60초 만료 or 완료 버튼) 호출된다.
+// 6픽을 다 소진하면 액션 단계로 전환, 아니면 다음 픽 플레이어에게 새 60초 타이머를 시작한다.
 function forceEndCurrentPlayerDraftTurn(roomID) {
     const room = activeRooms[roomID];
     if (!room || room.turnSequence.length === 0) return;
 
-    if (!room.draftFinishedPlayers) room.draftFinishedPlayers = [];
-    const currentPlayer = room.turnSequence[room.currentTurnOwnerIndex];
+    if (typeof room.currentDraftStep === 'undefined') room.currentDraftStep = 0;
+    room.currentDraftStep++;
 
-    if (!room.draftFinishedPlayers.includes(currentPlayer.id)) {
-        room.draftFinishedPlayers.push(currentPlayer.id);
-    }
-
-    if (room.draftFinishedPlayers.length >= room.players.length) {
+    if (room.currentDraftStep >= SNAKE_DRAFT_SEQUENCE.length) {
         room.currentTurnOwnerIndex = 0;
         const firstActionPlayer = room.turnSequence[0];
         io.to(roomID).emit('draftPhaseEnded', {
@@ -88,13 +88,14 @@ function forceEndCurrentPlayerDraftTurn(roomID) {
         });
         startPhaseTimer(roomID, 'ACTION');
     } else {
-        room.currentTurnOwnerIndex = (room.currentTurnOwnerIndex + 1) % room.turnSequence.length;
-        const nextPlayer = room.turnSequence[room.currentTurnOwnerIndex];
+        const nextOwnerIdx = SNAKE_DRAFT_SEQUENCE[room.currentDraftStep];
+        room.currentTurnOwnerIndex = nextOwnerIdx;
+        const nextPlayer = room.turnSequence[nextOwnerIdx];
 
         io.to(roomID).emit('draftTurnStart', {
             currentTurnOwnerID: nextPlayer.id,
             currentTurnOwnerNickname: nextPlayer.nickname,
-            logMessage: `⏰ ${currentPlayer.nickname}님의 드래프트가 끝났습니다. 다음은 [ ${nextPlayer.nickname} ] 님 차례입니다. (60초)`
+            logMessage: `🎲 [드래프트 ${room.currentDraftStep + 1}/6] [ ${nextPlayer.nickname} ] 님 차례입니다. (60초)`
         });
         startPhaseTimer(roomID, 'DRAFT');
     }
@@ -212,7 +213,7 @@ function advanceToNextRound(roomID) {
     }
     room.marketCards = nextMarketCards;
 
-    room.draftFinishedPlayers = [];
+    room.currentDraftStep = 0;
     room.currentTurnOwnerIndex = 0;
 
     io.to(roomID).emit('nextRoundStarted', {
@@ -225,7 +226,7 @@ function advanceToNextRound(roomID) {
     io.to(roomID).emit('draftTurnStart', {
         currentTurnOwnerID: firstDraftPlayer.id,
         currentTurnOwnerNickname: firstDraftPlayer.nickname,
-        logMessage: `🎲 드래프트 시작! 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
+        logMessage: `🎲 [드래프트 1/6] 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
     });
 
     startPhaseTimer(roomID, 'DRAFT');
@@ -595,7 +596,7 @@ io.on('connection', (socket) => {
         room.turnSequence = finalTurnOrder;
         room.currentTurnOwnerIndex = 0;
         room.markerPicks = {};
-        room.draftFinishedPlayers = [];
+        room.currentDraftStep = 0;
 
         io.to(roomID).emit('gameStartSignal', {
             finalPlayers: room.players,
@@ -607,7 +608,7 @@ io.on('connection', (socket) => {
         io.to(roomID).emit('draftTurnStart', {
             currentTurnOwnerID: firstDraftPlayer.id,
             currentTurnOwnerNickname: firstDraftPlayer.nickname,
-            logMessage: `🎲 드래프트 시작! 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
+            logMessage: `🎲 [드래프트 1/6] 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
         });
 
         startPhaseTimer(roomID, 'DRAFT');
