@@ -58,23 +58,46 @@ function startPhaseTimer(roomID, phase) {
     room.phaseTimerHandle = setTimeout(() => {
         const r = activeRooms[roomID];
         if (!r || r.currentServerPhase !== phase) return;
-        if (phase === 'DRAFT') forceEndDraftPhase(roomID);
+        if (phase === 'DRAFT') forceEndCurrentPlayerDraftTurn(roomID);
         else if (phase === 'ACTION') forceEndCurrentPlayerActionTurn(roomID);
         else if (phase === 'REFRESH') forceEndCurrentPlayerRefreshTurn(roomID);
     }, durationMs);
 }
 
-// ⏰ [강제 마감 - 드래프트] 60초 동안 마커 6개가 다 안 놓였어도 드래프트를 강제로 끝낸다.
-function forceEndDraftPhase(roomID) {
+// ⏰ [강제 마감 - 드래프트 인당] 현재 플레이어의 60초가 만료되거나 완료 버튼을 누르면 호출된다.
+// 마지막 플레이어면 액션 단계로 전환, 아니면 다음 플레이어에게 새 60초 타이머를 시작한다.
+function forceEndCurrentPlayerDraftTurn(roomID) {
     const room = activeRooms[roomID];
-    if (!room || room.markersPlaced >= 6) return;
-    room.markersPlaced = 6;
-    io.to(roomID).emit('sync_marketUpdate', {
-        marketCards: room.marketCards,
-        serverMarkersPlaced: 6,
-        logMessage: `⏰ [시간 종료] 60초가 지나 드래프트 단계가 강제로 종료됩니다.`
-    });
-    startPhaseTimer(roomID, 'ACTION');
+    if (!room || room.turnSequence.length === 0) return;
+
+    if (!room.draftFinishedPlayers) room.draftFinishedPlayers = [];
+    const currentPlayer = room.turnSequence[room.currentTurnOwnerIndex];
+
+    if (!room.draftFinishedPlayers.includes(currentPlayer.id)) {
+        room.draftFinishedPlayers.push(currentPlayer.id);
+    }
+
+    if (room.draftFinishedPlayers.length >= room.players.length) {
+        room.currentTurnOwnerIndex = 0;
+        const firstActionPlayer = room.turnSequence[0];
+        io.to(roomID).emit('draftPhaseEnded', {
+            marketCards: room.marketCards,
+            firstActionPlayerID: firstActionPlayer.id,
+            firstActionPlayerNickname: firstActionPlayer.nickname,
+            logMessage: `🎲 모든 플레이어의 드래프트가 완료되었습니다. 액션 단계로 넘어갑니다!`
+        });
+        startPhaseTimer(roomID, 'ACTION');
+    } else {
+        room.currentTurnOwnerIndex = (room.currentTurnOwnerIndex + 1) % room.turnSequence.length;
+        const nextPlayer = room.turnSequence[room.currentTurnOwnerIndex];
+
+        io.to(roomID).emit('draftTurnStart', {
+            currentTurnOwnerID: nextPlayer.id,
+            currentTurnOwnerNickname: nextPlayer.nickname,
+            logMessage: `⏰ ${currentPlayer.nickname}님의 드래프트가 끝났습니다. 다음은 [ ${nextPlayer.nickname} ] 님 차례입니다. (60초)`
+        });
+        startPhaseTimer(roomID, 'DRAFT');
+    }
 }
 
 // ⏰ [강제 마감 - 액션 인당] 현재 플레이어의 120초가 만료되면 해당 플레이어의 턴을 강제로 넘긴다.
@@ -189,10 +212,20 @@ function advanceToNextRound(roomID) {
     }
     room.marketCards = nextMarketCards;
 
+    room.draftFinishedPlayers = [];
+    room.currentTurnOwnerIndex = 0;
+
     io.to(roomID).emit('nextRoundStarted', {
         nextRound: room.currentRound,
         nextMarketCards: room.marketCards,
         turnSequence: room.turnSequence
+    });
+
+    const firstDraftPlayer = room.turnSequence[0];
+    io.to(roomID).emit('draftTurnStart', {
+        currentTurnOwnerID: firstDraftPlayer.id,
+        currentTurnOwnerNickname: firstDraftPlayer.nickname,
+        logMessage: `🎲 드래프트 시작! 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
     });
 
     startPhaseTimer(roomID, 'DRAFT');
@@ -562,11 +595,19 @@ io.on('connection', (socket) => {
         room.turnSequence = finalTurnOrder;
         room.currentTurnOwnerIndex = 0;
         room.markerPicks = {};
+        room.draftFinishedPlayers = [];
 
         io.to(roomID).emit('gameStartSignal', {
             finalPlayers: room.players,
             sharedMarketCards: room.marketCards,
             turnSequence: finalTurnOrder
+        });
+
+        const firstDraftPlayer = finalTurnOrder[0];
+        io.to(roomID).emit('draftTurnStart', {
+            currentTurnOwnerID: firstDraftPlayer.id,
+            currentTurnOwnerNickname: firstDraftPlayer.nickname,
+            logMessage: `🎲 드래프트 시작! 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
         });
 
         startPhaseTimer(roomID, 'DRAFT');
@@ -619,20 +660,37 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 🛒 [인게임 액션 1] 마켓 선점 동기화
+    // ✅ [드래프트 완료] 플레이어가 자신의 드래프트 차례를 수동으로 종료할 때
+    socket.on('action_endDraftTurn', (data) => {
+        const { roomID } = data;
+        const room = activeRooms[roomID];
+        if (!room || room.currentServerPhase !== 'DRAFT') return;
+
+        const currentDraftPlayer = room.turnSequence[room.currentTurnOwnerIndex];
+        if (!currentDraftPlayer || currentDraftPlayer.id !== socket.id) return;
+
+        forceEndCurrentPlayerDraftTurn(roomID);
+    });
+
+    // 🛒 [인게임 액션 1] 마켓 선점 동기화 (드래프트 단계: 현재 차례 플레이어만 선점 가능)
     socket.on('action_buyCard', (data) => {
         const { roomID, cardId, playerNickname } = data;
         const room = activeRooms[roomID];
         if (!room) return;
 
+        if (room.currentServerPhase === 'DRAFT') {
+            const currentDraftPlayer = room.turnSequence[room.currentTurnOwnerIndex];
+            if (!currentDraftPlayer || currentDraftPlayer.id !== socket.id) return;
+        }
+
         const targetCard = room.marketCards.find(card => card.id === cardId);
         if (targetCard && !targetCard.claimedBy) {
-            targetCard.claimedBy = playerNickname; 
-            
+            targetCard.claimedBy = playerNickname;
+
             if (typeof room.markersPlaced === 'undefined') room.markersPlaced = 0;
             room.markersPlaced++;
 
-            console.log(`🎯 [선점 완편] 방 [${roomID}] : ${playerNickname} -> [${targetCard.name}] (${room.markersPlaced}/6)`);
+            console.log(`🎯 [선점] 방 [${roomID}] : ${playerNickname} -> [${targetCard.name}]`);
 
             io.to(roomID).emit('sync_marketUpdate', {
                 marketCards: room.marketCards,
@@ -640,11 +698,6 @@ io.on('connection', (socket) => {
                 cardName: targetCard.name,
                 serverMarkersPlaced: room.markersPlaced
             });
-
-            // 🌟 마커 6개가 다 놓이면 드래프트 타이머를 끄고 액션 단계 타이머(120초)를 시작한다.
-            if (room.markersPlaced >= 6 && room.currentServerPhase === 'DRAFT') {
-                startPhaseTimer(roomID, 'ACTION');
-            }
         }
     });
 

@@ -768,6 +768,7 @@
                         <div class="marker-slot" id="marker-slot-1" draggable="true" ondragstart="onMarkerDragStart(event, 1)">📌</div>
                         <div class="marker-slot" id="marker-slot-2" draggable="true" ondragstart="onMarkerDragStart(event, 2)">📌</div>
                         <span class="marker-tray-hint">마커를 카드 위로 드래그하면 찜이 돼요</span>
+                        <button id="draft-end-btn" style="display:none; margin-left:8px; padding:4px 12px; background:rgba(96,165,250,0.2); border:1px solid #60a5fa; border-radius:4px; color:#60a5fa; font-size:0.8rem; font-family:'Noto Sans KR',sans-serif; cursor:pointer; white-space:nowrap;" onclick="endDraftTurn()">드래프트 완료 ✓</button>
                     </div>
                 </div>
 
@@ -1420,54 +1421,75 @@
 
             // 🎨 [핵심 격발] 드래프트 진행 중에도 즉시 암전과 📌 표시가 보이도록 강제 호출!
             updateMarketUI();
-
-            // 🌟 6마커 완료 시 액션 페이즈 전환 및 Drafted Slots 이송
-            if (markersPlaced >= 6) {
-                logMessage("🎲 모든 마커가 소모되었습니다. 사냥 단계가 종료됩니다!");
-                currentTurnIndex = 0;
-                currentPhase = "ACTION";
-                
-                const infoItems = document.querySelectorAll('.game-header .info-item');
-                infoItems.forEach(item => {
-                    if (item.innerText.includes('PHASE')) {
-                        item.innerHTML = 'PHASE: <span style="color: #60a5fa;">Action Phase</span>';
-                    }
-                });
-                
-                const myDraftedCards = marketCards.filter(c => {
-                    if (!c || !c.claimedBy) return false;
-                    // 객체 형태든 문자열 형태든 내 닉네임과 일치하는지 정밀 검사
-                    const claimName = (typeof c.claimedBy === 'object') ? c.claimedBy.nickname : c.claimedBy;
-                    return claimName === userNickname;
-                });
-                
-                const tempZone = document.getElementById('temp-draft-slots');
-                if (tempZone) {
-                    tempZone.innerHTML = ''; 
-                    myDraftedCards.forEach(card => {
-                        let bColor = card.type.includes('🔥') ? '#ff4d4d' : card.type.includes('💧') ? '#3b82f6' : card.type.includes('🍃') ? '#10b981' : card.type.includes('⛰️') ? '#e5b842' : '#e9d5ff';
-                        let escapedSummary = card.summary ? card.summary.replace(/'/g, "\\'") : "상세 설명";
-                        
-                        tempZone.innerHTML += `
-                            <div class="mini-temp-card" style="border-color: ${bColor}; position:relative; z-index: 10;" onclick="openCardModal('${card.name}', '${card.type}', '${card.cost}', '${escapedSummary}', 'temp-draft', ${card.id})">
-                                <span class="m-cost" style="position:absolute; top:2px; left:2px; font-size:0.6rem; pointer-events:none;">${card.cost}</span>
-                                <span class="t-name" style="pointer-events:none; font-size:0.75rem; font-weight:700;">${card.name}</span>
-                            </div>
-                        `;
-                    });
-                }
-                return;
-            }
-
-            // 스네이크 드래프트 턴 로테이션 계산식
-            if (markersPlaced === 3) { draftDirection = 0; } 
-            else if (markersPlaced === 4) { draftDirection = -1; } 
-            else { if (markersPlaced < 3) draftDirection = 1; }
-            
-            currentTurnIndex = (currentTurnIndex + draftDirection + 3) % 3;
-            logMessage(`🎲 다음 차례: ${players[currentTurnIndex]}`);
         });
 
+        // 🎲 [드래프트 턴 시작] 서버가 알려주는 현재 드래프터 정보를 받아 UI를 갱신한다.
+        socket.on('draftTurnStart', (data) => {
+            if (data.logMessage) logMessage(data.logMessage);
+
+            const idx = gameTurnOrder.findIndex(p => p.id === data.currentTurnOwnerID);
+            if (idx !== -1) currentTurnIndex = idx;
+
+            const draftEndBtn = document.getElementById('draft-end-btn');
+            if (draftEndBtn) {
+                draftEndBtn.style.display = (data.currentTurnOwnerID === socket.id) ? 'inline-block' : 'none';
+            }
+
+            updateMarketUI();
+        });
+
+        // 🎲 [드래프트 단계 종료] 모든 플레이어 드래프트 완료 → 액션 단계로 전환
+        socket.on('draftPhaseEnded', (data) => {
+            if (data.marketCards) marketCards = data.marketCards;
+            if (data.logMessage) logMessage(data.logMessage);
+
+            const draftEndBtn = document.getElementById('draft-end-btn');
+            if (draftEndBtn) draftEndBtn.style.display = 'none';
+
+            currentPhase = "ACTION";
+            if (data.firstActionPlayerNickname && players.includes(data.firstActionPlayerNickname)) {
+                currentTurnIndex = players.indexOf(data.firstActionPlayerNickname);
+            } else {
+                currentTurnIndex = 0;
+            }
+
+            const infoItems = document.querySelectorAll('.game-header .info-item');
+            infoItems.forEach(item => {
+                if (item.innerText.includes('PHASE')) {
+                    item.innerHTML = 'PHASE: <span style="color: #60a5fa;">Action Phase</span>';
+                }
+            });
+
+            const myDraftedCards = marketCards.filter(c => {
+                if (!c || !c.claimedBy) return false;
+                const claimName = (typeof c.claimedBy === 'object') ? c.claimedBy.nickname : c.claimedBy;
+                return claimName === userNickname;
+            });
+
+            const tempZone = document.getElementById('temp-draft-slots');
+            if (tempZone) {
+                tempZone.innerHTML = '';
+                myDraftedCards.forEach(card => {
+                    let bColor = card.type.includes('🔥') ? '#ff4d4d' : card.type.includes('💧') ? '#3b82f6' : card.type.includes('🍃') ? '#10b981' : card.type.includes('⛰️') ? '#e5b842' : '#e9d5ff';
+                    let escapedSummary = card.summary ? card.summary.replace(/'/g, "\\'") : "상세 설명";
+                    tempZone.innerHTML += `
+                        <div class="mini-temp-card" style="border-color: ${bColor}; position:relative; z-index: 10;" onclick="openCardModal('${card.name}', '${card.type}', '${card.cost}', '${escapedSummary}', 'temp-draft', ${card.id})">
+                            <span class="m-cost" style="position:absolute; top:2px; left:2px; font-size:0.6rem; pointer-events:none;">${card.cost}</span>
+                            <span class="t-name" style="pointer-events:none; font-size:0.75rem; font-weight:700;">${card.name}</span>
+                        </div>
+                    `;
+                });
+            }
+
+            updateMyHandUI();
+            updateMarketUI();
+        });
+
+        function endDraftTurn() {
+            socket.emit('action_endDraftTurn', { roomID: currentRoomID });
+            const draftEndBtn = document.getElementById('draft-end-btn');
+            if (draftEndBtn) draftEndBtn.style.display = 'none';
+        }
 
         // 📜 Chronicle Log창에 메시지 추가용 유틸 함수 (기존 유지)
         function logMessage(msg) {
@@ -3662,6 +3684,8 @@
             markersPlaced = 0;
             chosenRefreshOrder = [];
             refreshTargetCards = [];
+            const draftEndBtn = document.getElementById('draft-end-btn');
+            if (draftEndBtn) draftEndBtn.style.display = 'none';
             
             isMyRefreshDone = false; 
             currentPhase = "DRAFT";
