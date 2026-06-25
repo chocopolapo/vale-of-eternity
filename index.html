@@ -317,6 +317,22 @@
         }
         #round-banner-overlay.show #round-banner-text { transform: scale(1); }
 
+        /* 내 턴 알림 배너 */
+        #myturn-banner-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9996;
+            display: flex; align-items: center; justify-content: center; pointer-events: none;
+            background: rgba(0,0,0,0); opacity: 0; transition: opacity 0.3s ease;
+        }
+        #myturn-banner-overlay.show { opacity: 1; background: rgba(0,0,0,0.25); }
+        #myturn-banner-text {
+            font-family: 'Cinzel', 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 3.5rem; letter-spacing: 5px;
+            background: linear-gradient(to bottom, #ffffff 0%, #bfdbfe 40%, #60a5fa 80%, #2563eb 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 16px rgba(96,165,250,0.7));
+            transform: scale(0.85); transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        #myturn-banner-overlay.show #myturn-banner-text { transform: scale(1); }
+
         /* 🏆 게임 종료 결과 화면 */
         #game-over-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10000;
@@ -713,6 +729,11 @@
     <!-- 🔔 라운드 시작 안내 배너 -->
     <div id="round-banner-overlay">
         <div id="round-banner-text">ROUND 1</div>
+    </div>
+
+    <!-- 🔵 내 턴 알림 배너 -->
+    <div id="myturn-banner-overlay">
+        <div id="myturn-banner-text">MY TURN</div>
     </div>
 
     <!-- 🏆 게임 종료 결과 화면 -->
@@ -1430,11 +1451,15 @@
             const idx = gameTurnOrder.findIndex(p => p.id === data.currentTurnOwnerID);
             if (idx !== -1) currentTurnIndex = idx;
 
+            currentActiveTurnNickname = data.currentTurnOwnerNickname || '';
+
             const draftEndBtn = document.getElementById('draft-end-btn');
             if (draftEndBtn) {
                 draftEndBtn.style.display = (data.currentTurnOwnerID === socket.id) ? 'inline-block' : 'none';
             }
 
+            if (data.currentTurnOwnerID === socket.id) showMyTurnBanner();
+            if (typeof renderRivalStatusUI === 'function') renderRivalStatusUI();
             updateMarketUI();
         });
 
@@ -2561,16 +2586,22 @@
             refreshTargetCards.forEach(card => {
                 const isChosen = chosenRefreshOrder.some(c => c.id === card.id);
                 let bColor = card.type.includes('🔥') ? '#ff4d4d' : card.type.includes('💧') ? '#3b82f6' : card.type.includes('🍃') ? '#10b981' : '#e5b842';
-                
+                const esc = s => (s || '').replace(/'/g, "\\'");
                 container.innerHTML += `
-                    <button 
-                        onclick="selectCardForRefresh(${card.id})" 
-                        style="padding: 10px 15px; background: ${isChosen ? '#334155' : '#1e293b'}; 
-                               color: ${isChosen ? '#64748b' : '#fff'}; border: 2px solid ${isChosen ? '#334155' : bColor}; 
-                               border-radius: 6px; cursor: ${isChosen ? 'default' : 'pointer'}; font-weight: bold;"
-                        ${isChosen ? 'disabled' : ''}>
-                        ${card.name}
-                    </button>
+                    <div style="display:flex; gap:4px; align-items:center;">
+                        <button
+                            onclick="selectCardForRefresh(${card.id})"
+                            style="flex:1; padding: 10px 12px; background: ${isChosen ? '#334155' : '#1e293b'};
+                                   color: ${isChosen ? '#64748b' : '#fff'}; border: 2px solid ${isChosen ? '#334155' : bColor};
+                                   border-radius: 6px; cursor: ${isChosen ? 'default' : 'pointer'}; font-weight: bold;"
+                            ${isChosen ? 'disabled' : ''}>
+                            ${card.name}
+                        </button>
+                        <button onclick="openCardModal('${esc(card.name)}','${esc(card.type)}','${card.cost||0}','${esc(card.summary)}','refresh-order',${card.id||0})"
+                            style="padding:8px 10px; background:#1e293b; border:1px solid #475569; border-radius:6px; color:#94a3b8; cursor:pointer; font-size:0.85rem; flex-shrink:0;">
+                            ℹ️
+                        </button>
+                    </div>
                 `;
             });
 
@@ -2655,13 +2686,14 @@
                 
                 // 손패 스타일 축소판 적용 (들여쓰기 마진 엄수)
                 cardView.className = "game-card-mini";
-                cardView.style.cssText = `position: relative; width: 100px; height: 130px; border: 2px solid ${badgeColor}; background: #0f172a; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; cursor: ${isMimicMode ? 'pointer' : 'default'}; user-select: none; transition: transform 0.2s;`;
-                
+                cardView.style.cssText = `position: relative; width: 100px; height: 130px; border: 2px solid ${badgeColor}; background: #0f172a; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; user-select: none; transition: transform 0.2s;`;
+                cardView.onmouseover = () => cardView.style.transform = "scale(1.05)";
+                cardView.onmouseout = () => cardView.style.transform = "scale(1)";
+
                 if (isMimicMode) {
-                    cardView.onmouseover = () => cardView.style.transform = "scale(1.05)";
-                    cardView.onmouseout = () => cardView.style.transform = "scale(1)";
-                    // 미믹 모드에서 클릭 시 손패로 회수처리 트리거 결합
                     cardView.onclick = () => executeMimicClaim(card);
+                } else {
+                    cardView.onclick = () => openCardModal(card.name, card.type || '', card.cost || 0, card.summary || '', 'discard', card.id || 0);
                 }
 
                 cardView.innerHTML = `
@@ -3546,12 +3578,20 @@
                 }
             }
 
-            // 환기 페이즈 차례 이관 제어
-            const phaseSpan = document.querySelector('.game-header .info-item span');
-            const isRefreshPhase = phaseSpan && phaseSpan.innerText.includes('Refresh Phase');
-            if (isRefreshPhase && data.currentTurnOwnerID === socket.id) {
+            // 현재 액티브 턴 플레이어 추적 (RIVAL STATUS 하이라이트용)
+            if (data.currentTurnOwnerNickname) {
+                currentActiveTurnNickname = data.currentTurnOwnerNickname;
+            }
+
+            // MY TURN 배너 표시
+            if (data.currentTurnOwnerID === socket.id && currentPhase !== "DRAFT") {
+                showMyTurnBanner();
+            }
+
+            // 환기 페이즈 차례 이관 제어 (currentPhase 변수로 정확히 판단)
+            if (currentPhase === "REFRESH" && data.currentTurnOwnerID === socket.id) {
                 logMessage(`🔮 [정산 권한 이관] 당신의 환기 정산 차례입니다.`);
-                enterRefreshPhase(); 
+                enterRefreshPhase();
             }
         });
 
@@ -3671,9 +3711,13 @@
                 }
             });
 
+            currentActiveTurnNickname = data.currentTurnOwnerNickname || '';
+            if (typeof renderRivalStatusUI === 'function') renderRivalStatusUI();
+
             if (data.currentTurnOwnerID === socket.id) {
                 logMessage(`🔮 [정산 권한 획득] 당신은 이 라운드의 선플레이어입니다.`);
-                enterRefreshPhase(); 
+                showMyTurnBanner();
+                enterRefreshPhase();
             } else {
                 logMessage(`⏳ 선플레이어 [ ${data.currentTurnOwnerNickname} ] 님이 환기 효과를 정산 중입니다. 차례를 기다리세요.`);
             }
@@ -3684,6 +3728,8 @@
             markersPlaced = 0;
             chosenRefreshOrder = [];
             refreshTargetCards = [];
+            currentActiveTurnNickname = '';
+            Object.keys(rivalsData).forEach(n => { if (rivalsData[n]) rivalsData[n].score = 0; });
             const draftEndBtn = document.getElementById('draft-end-btn');
             if (draftEndBtn) draftEndBtn.style.display = 'none';
             
@@ -3752,6 +3798,15 @@
             if (typeof finishRefreshPhase === 'function') {
                 finishRefreshPhase();
             }
+        }
+
+        let currentActiveTurnNickname = '';
+
+        function showMyTurnBanner() {
+            const overlay = document.getElementById('myturn-banner-overlay');
+            if (!overlay) return;
+            overlay.classList.add('show');
+            setTimeout(() => overlay.classList.remove('show'), 1800);
         }
 
         // 🔔 라운드가 시작될 때마다 화면 정중앙에 "ROUND N"을 잠깐 크게 띄운다.
@@ -3974,13 +4029,14 @@
                     data.summonZone.forEach(card => {
                         let bColor = '#e9d5ff';
                         if (card.type) {
-                            bColor = card.type.includes('🔥') ? '#ff4d4d' : 
-                                     card.type.includes('💧') ? '#3b82f6' : 
-                                     card.type.includes('🍃') ? '#10b981' : 
-                                     card.type.includes('⛰️') ? '#e5b842' : '#purple';
+                            bColor = card.type.includes('🔥') ? '#ff4d4d' :
+                                     card.type.includes('💧') ? '#3b82f6' :
+                                     card.type.includes('🍃') ? '#10b981' :
+                                     card.type.includes('⛰️') ? '#e5b842' : '#e9d5ff';
                         }
+                        const esc = s => (s || '').replace(/'/g, "\\'");
                         summonedCardsHTML += `
-                            <div style="padding: 6px 10px; background: #1e293b; border-left: 3px solid ${bColor}; border-radius: 4px; font-size: 0.7rem; color: #fff; display: flex; justify-content: space-between; align-items: center; min-width: 95px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                            <div onclick="openCardModal('${esc(card.name)}','${esc(card.type)}','${card.cost||0}','${esc(card.summary)}','rival-summon',${card.id||0})" style="padding: 6px 10px; background: #1e293b; border-left: 3px solid ${bColor}; border-radius: 4px; font-size: 0.7rem; color: #fff; display: flex; justify-content: space-between; align-items: center; min-width: 95px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); cursor:pointer;" onmouseover="this.style.background='#2d3f55'" onmouseout="this.style.background='#1e293b'">
                                 <span style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65px;">${card.name}</span>
                                 <span style="font-size:0.6rem; color:#64748b; font-weight:900;">${card.cost || 0}</span>
                             </div>
@@ -3988,9 +4044,12 @@
                     });
                 }
 
-                // 🖥️ HTML 강제 주입 단일 캔버스 구조 바인딩
+                const isActiveTurn = (name === currentActiveTurnNickname);
+                const wrapperBorder = isActiveTurn ? '1px solid #e5b842' : '1px solid #1e293b';
+                const wrapperShadow = isActiveTurn ? '0 0 12px rgba(229,184,66,0.5)' : 'none';
+
                 targetBox.innerHTML += `
-                    <div class="rival-card-wrapper" style="margin-bottom: 12px; border-radius: 6px; overflow: hidden; border: 1px solid #1e293b; background: rgba(30, 41, 59, 0.15); transition: all 0.3s ease;">
+                    <div class="rival-card-wrapper" style="margin-bottom: 12px; border-radius: 6px; overflow: hidden; border: ${wrapperBorder}; background: rgba(30, 41, 59, 0.15); transition: all 0.3s ease; box-shadow: ${wrapperShadow};">
                         <div class="rival-card" onclick="toggleRivalAccordion(this)" style="cursor: pointer; margin-bottom: 0; padding: 12px; border-radius: 6px 6px 0 0; transition: background 0.2s; display: flex; flex-direction: column; gap: 8px;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
                             <div class="rival-info" style="display: flex; justify-content: space-between; align-items: center; width: 100%; height: auto;">
                                 <span class="rival-name" style="font-size: 0.85rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;">
