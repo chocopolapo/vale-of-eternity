@@ -2187,6 +2187,7 @@
         }
 
         function actionSummonCard(cardId) {
+            closeCardModal();
             // 🚨 내 턴이 아니면 행동 차단
             if (!checkMyActionTurn()) return;
 
@@ -2491,11 +2492,20 @@
             // 환기 순서 지정 모드일 때 레이블 교체
             if (label) {
                 if (isRefreshOrderMode) {
-                    label.style.color = '#f59e0b';
-                    label.innerHTML = `⟳ 환기 순서 지정 (${chosenRefreshOrder.length}/${refreshTargetCards.length}) &nbsp;<span onclick="resetRefreshOrder()" style="font-size:0.7rem; color:#64748b; cursor:pointer; text-decoration:underline; font-family:'Noto Sans KR',sans-serif;">초기화</span>`;
+                    label.style.display = 'flex';
+                    label.style.alignItems = 'center';
+                    label.style.gap = '6px';
+                    label.innerHTML = `
+                        <span style="flex:1; color:#f59e0b; font-size:0.8rem;">⟳ 환기 순서 (${chosenRefreshOrder.length}/${refreshTargetCards.length})</span>
+                        <button onclick="resetRefreshOrder()" style="padding:2px 7px; background:#475569; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.65rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; white-space:nowrap;">재선택</button>
+                        <button onclick="confirmRefreshOrder()" style="padding:2px 7px; background:#10b981; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.65rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; white-space:nowrap;">확정</button>
+                    `;
                 } else {
-                    label.style.color = '';
+                    label.style.display = '';
+                    label.style.alignItems = '';
+                    label.style.gap = '';
                     label.innerText = 'SUMMON ZONE';
+                    label.style.color = '';
                 }
             }
 
@@ -2531,20 +2541,20 @@
 
                         slots[index].className = "summon-slot active-card";
                         slots[index].style.borderColor = isChosen ? '#334155' : (isRefreshCard ? '#f59e0b' : bColor);
-                        slots[index].style.opacity = isChosen ? '0.5' : '1';
-                        slots[index].style.cursor = (isRefreshCard && !isChosen) ? 'pointer' : 'default';
+                        slots[index].style.opacity = isChosen ? '0.6' : '1';
+                        slots[index].style.cursor = 'pointer';
+                        const esc = s => (s || '').replace(/'/g, "\\'");
                         slots[index].innerHTML = `
                             <div class="card-cost" style="position:absolute; top:2px; left:2px; font-size:0.6rem;">${card.cost}</div>
                             ${isChosen ? `<div style="position:absolute; top:2px; right:4px; font-size:1rem; font-weight:900; color:#f59e0b;">${chosenIdx + 1}</div>` : ''}
-                            <div style="font-size:0.75rem; font-weight:700; color:${isChosen ? '#64748b' : '#fff'}; padding:0 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%; margin-top:15px;">${card.name}</div>
-                            <div style="font-size:0.6rem; color:${isChosen ? '#475569' : (isRefreshCard ? '#f59e0b' : bColor)}; margin-top:5px;">${isChosen ? '완료' : (isRefreshCard ? '클릭→순서' : card.type)}</div>
+                            <div style="font-size:0.75rem; font-weight:700; color:${isChosen ? '#94a3b8' : '#fff'}; padding:0 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%; margin-top:14px;">${card.name}</div>
+                            ${isRefreshCard && !isChosen
+                                ? `<button onclick="event.stopPropagation(); selectCardForRefresh(${card.id})" style="margin-top:auto; padding:2px 0; width:calc(100% - 8px); margin-bottom:3px; background:#f59e0b; color:#000; border:none; border-radius:3px; cursor:pointer; font-size:0.55rem; font-weight:700;">순서 지정</button>`
+                                : `<div style="font-size:0.6rem; color:${isChosen ? '#475569' : bColor}; margin-top:4px;">${isChosen ? '선택됨' : card.type}</div>`
+                            }
                         `;
-                        if (isRefreshCard && !isChosen) {
-                            slots[index].onclick = () => selectCardForRefresh(card.id);
-                        } else {
-                            let escapedSummary = card.summary ? card.summary.replace(/'/g, "\\'") : "상세 설명";
-                            slots[index].onclick = () => openCardModal(card.name, card.type, card.cost, escapedSummary, 'info', card.id);
-                        }
+                        let escapedSummary = card.summary ? card.summary.replace(/'/g, "\\'") : "상세 설명";
+                        slots[index].onclick = () => openCardModal(card.name, card.type, card.cost, escapedSummary, 'info', card.id);
                     } else {
                         slots[index].className = "summon-slot active-card";
                         slots[index].style.borderColor = bColor;
@@ -2641,9 +2651,6 @@
             if (card && !chosenRefreshOrder.some(c => c.id === cardId)) {
                 chosenRefreshOrder.push(card);
                 updateSummonZoneUI();
-                if (chosenRefreshOrder.length === refreshTargetCards.length) {
-                    setTimeout(() => confirmRefreshOrder(), 300);
-                }
             }
         }
 
