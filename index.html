@@ -1354,6 +1354,7 @@
                         countdownNum.style.fontFamily = "'Noto Sans KR', sans-serif";
                         countdownNum.style.fontWeight = "700";
                         if (typeof showRoundBanner === 'function') showRoundBanner(currentRound);
+                    if (typeof saveGameState === 'function') saveGameState();
                     }, 500);
                 }, 2500);
             } else {
@@ -2581,7 +2582,6 @@
                     label.innerHTML = `
                         <span style="flex:1; color:#f59e0b; font-size:0.8rem;">⟳ 환기 순서 (${chosenRefreshOrder.length}/${refreshTargetCards.length})</span>
                         <button onclick="resetRefreshOrder()" style="padding:2px 7px; background:#475569; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.65rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; white-space:nowrap;">재선택</button>
-                        <button onclick="confirmRefreshOrder()" style="padding:2px 7px; background:#10b981; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.65rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; white-space:nowrap;">확정</button>
                     `;
                 } else {
                     label.style.display = '';
@@ -3597,23 +3597,17 @@
 
             // 🚨 [버그 박멸 핵심] 상태 관리 변수가 REFRESH 상태인지를 칼같이 대조합니다!
             if (currentPhase === "REFRESH") {
-                logMessage(`🏁 ${userNickname}님이 환기 정산 마감(Pass)을 선언했습니다.`);
-                
-                isMyRefreshDone = true; 
-
-                socket.emit('playerFinishedRefresh', {
-                    roomID: currentRoomID,
-                    userNickname: userNickname,
-                    finalScore: myScore,
-                    summonZoneCount: mySummonZone.filter(c => c).length
-                });
-
-                logMessage(`⏳ 다른 플레이어들이 정산을 마칠 때까지 전장 대기 장벽이 활성화됩니다...`);
-                
-                if (typeof finishRefreshPhase === 'function') {
-                    finishRefreshPhase();
+                // 순서 지정 모드 중이면 → 확정(confirmRefreshOrder)이 모든 처리를 담당
+                if (isRefreshOrderMode) {
+                    confirmRefreshOrder();
+                    return;
                 }
-                return; 
+                // 환기 카드가 없었던 경우(isRefreshOrderMode=false) → 직접 서버에 완료 신호
+                logMessage(`🏁 ${userNickname}님이 환기 정산 마감(Pass)을 선언했습니다.`);
+                if (typeof reportRefreshCompleteToServer === 'function') {
+                    reportRefreshCompleteToServer();
+                }
+                return;
             }
 
             // ⚔️ ACTION 페이즈일 때만 액션 종료 신호 발송
@@ -3714,6 +3708,9 @@
                 logMessage(`🔮 [정산 권한 이관] 당신의 환기 정산 차례입니다.`);
                 enterRefreshPhase();
             }
+
+            // 세션 저장 (재연결 대비)
+            if (typeof saveGameState === 'function') saveGameState();
         });
 
         // 📡 [5구역 최종 완편] 실시간 액션 정산 중계 안테나
@@ -4164,14 +4161,21 @@
                 const isActiveTurn = (name === currentActiveTurnNickname);
                 const wrapperBorder = isActiveTurn ? '1px solid #e5b842' : (isSelf ? '1px solid rgba(96,165,250,0.3)' : '1px solid #1e293b');
                 const wrapperShadow = isActiveTurn ? '0 0 12px rgba(229,184,66,0.5)' : 'none';
-                const nameBadge = isSelf ? ` <span style="font-size:0.6rem; color:#60a5fa; font-weight:700; background:rgba(96,165,250,0.12); padding:1px 5px; border-radius:4px; border:1px solid rgba(96,165,250,0.3);">나</span>` : '';
+                const _mk = (typeof playerMarkerMap !== 'undefined') ? playerMarkerMap[name] : null;
+                const _mkImg = _mk ? (TURN_ORDER_MARKER_IMG[_mk] || null) : null;
+                const markerIcon = _mkImg
+                    ? `<img src="${_mkImg}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px;box-shadow:0 1px 4px rgba(0,0,0,0.5);">`
+                    : `<span style="margin-right:4px;">🧙‍♂️</span>`;
+                const nameDisplay = isSelf
+                    ? `${markerIcon}<span style="font-size:0.72rem;color:#60a5fa;font-weight:700;background:rgba(96,165,250,0.12);padding:2px 8px;border-radius:4px;border:1px solid rgba(96,165,250,0.3);">나</span>`
+                    : `${markerIcon}<span style="font-size:0.85rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;display:inline-block;vertical-align:middle;">${name}</span>`;
 
                 targetBox.innerHTML += `
                     <div class="rival-card-wrapper" style="margin-bottom:12px; border-radius:6px; overflow:hidden; border:${wrapperBorder}; background:rgba(30,41,59,0.15); transition:all 0.3s ease; box-shadow:${wrapperShadow};">
                         <div class="rival-card" onclick="toggleRivalAccordion(this)" style="cursor:pointer; margin-bottom:0; padding:12px; border-radius:6px 6px 0 0; transition:background 0.2s; display:flex; flex-direction:column; gap:8px;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
                             <div class="rival-info" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-                                <span class="rival-name" style="font-size:0.85rem; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;">
-                                    🧙‍♂️ ${name}${nameBadge}
+                                <span class="rival-name" style="display:flex;align-items:center;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;max-width:150px;">
+                                    ${nameDisplay}
                                 </span>
                                 <span class="rival-score" style="font-size:0.8rem; color:#94a3b8; white-space:nowrap; font-weight:700;">
                                     Score: <b style="color:#e5b842; font-size:0.9rem; font-weight:900;">${score}</b>
@@ -5191,6 +5195,96 @@
         </button>
     </div>
 </div>
+
+<!-- 게임 세션 저장 / 재연결 -->
+<script>
+// ─── 게임 상태 로컬 저장 ────────────────────────────────────────────
+function saveGameState() {
+    if (!currentRoomID || !userNickname) return;
+    try {
+        localStorage.setItem('voe_session', JSON.stringify({
+            roomCode: currentRoomID,
+            nickname: userNickname,
+            currentRound: typeof currentRound !== 'undefined' ? currentRound : 1,
+            currentPhase: typeof currentPhase !== 'undefined' ? currentPhase : 'DRAFT',
+            myScore: typeof myScore !== 'undefined' ? myScore : 0,
+            myStones: typeof myStones !== 'undefined' ? JSON.parse(JSON.stringify(myStones)) : { red:0, blue:0, purple:0 },
+            mySummonZone: typeof mySummonZone !== 'undefined' ? JSON.parse(JSON.stringify(mySummonZone)) : [],
+            myHand: typeof myHand !== 'undefined' ? JSON.parse(JSON.stringify(myHand)) : [],
+            gameTurnOrder: typeof gameTurnOrder !== 'undefined' ? JSON.parse(JSON.stringify(gameTurnOrder)) : [],
+            playerMarkerMap: typeof playerMarkerMap !== 'undefined' ? JSON.parse(JSON.stringify(playerMarkerMap)) : {},
+            marketCards: typeof marketCards !== 'undefined' ? JSON.parse(JSON.stringify(marketCards)) : [],
+            ts: Date.now()
+        }));
+    } catch(e) {}
+}
+
+// ─── 페이지 로드 시 재연결 시도 ────────────────────────────────────
+(function tryGameReconnect() {
+    try {
+        const raw = localStorage.getItem('voe_session');
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        // 10분 이상 지난 세션은 무시
+        if (!saved || Date.now() - saved.ts > 600000) {
+            localStorage.removeItem('voe_session');
+            return;
+        }
+
+        // socket이 아직 없을 수 있어서 DOMContentLoaded 이후 실행
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof socket === 'undefined') return;
+
+            socket.emit('reconnectToGame', { roomCode: saved.roomCode, nickname: saved.nickname });
+
+            socket.once('reconnectSuccess', (data) => {
+                // 핵심 변수 복원
+                userNickname = saved.nickname;
+                currentRoomID = saved.roomCode;
+                if (typeof currentRound !== 'undefined') currentRound = saved.currentRound;
+                if (typeof currentPhase !== 'undefined') currentPhase = saved.currentPhase;
+                if (typeof myScore !== 'undefined') myScore = saved.myScore;
+                if (typeof myStones !== 'undefined') myStones = saved.myStones;
+                if (typeof mySummonZone !== 'undefined') mySummonZone = saved.mySummonZone;
+                if (typeof myHand !== 'undefined') myHand = saved.myHand;
+                if (typeof gameTurnOrder !== 'undefined') gameTurnOrder = data.turnSequence || saved.gameTurnOrder || [];
+                if (typeof playerMarkerMap !== 'undefined') playerMarkerMap = saved.playerMarkerMap || {};
+                if (typeof marketCards !== 'undefined') marketCards = data.marketCards || saved.marketCards || [];
+
+                // 게임 화면으로 전환
+                const landing = document.getElementById('landing-screen');
+                const game = document.getElementById('game-screen');
+                if (landing) { landing.classList.remove('active-view'); landing.classList.add('exit-view'); }
+                if (game) { game.classList.remove('exit-view'); game.classList.add('active-view'); }
+                if (typeof BGM !== 'undefined') BGM.play('game');
+
+                // UI 갱신
+                setTimeout(() => {
+                    if (typeof updateResourcesUI === 'function') updateResourcesUI();
+                    if (typeof updateHandUI === 'function') updateHandUI();
+                    if (typeof updateSummonZoneUI === 'function') updateSummonZoneUI();
+                    if (typeof renderRivalStatusUI === 'function') renderRivalStatusUI();
+                    if (typeof syncNewRoundMarket === 'function' && data.marketCards) syncNewRoundMarket(data.marketCards);
+                    // 라운드/페이즈 표시 갱신
+                    document.querySelectorAll('.info-item').forEach(el => {
+                        if (el.innerText.includes('ROUND')) el.innerHTML = `ROUND: <span style="color:#60a5fa;">${currentRound}/10</span>`;
+                        if (el.innerText.includes('PHASE')) el.innerHTML = `PHASE: <span style="color:#60a5fa;">${currentPhase} Phase</span>`;
+                    });
+                    const scoreEl = document.getElementById('my-score');
+                    if (scoreEl) scoreEl.innerText = myScore;
+                }, 200);
+
+                console.log(`✅ [재연결 성공] ${saved.nickname} → [${saved.roomCode}]`);
+            });
+
+            socket.once('reconnectFailed', () => {
+                localStorage.removeItem('voe_session');
+                console.log('❌ [재연결 실패] 세션 삭제');
+            });
+        });
+    } catch(e) {}
+})();
+</script>
 
 <!-- BGM 토글 버튼 -->
 <button id="bgm-toggle-btn" onclick="BGM.toggleMute()" title="배경음악 켜기/끄기">🔊</button>

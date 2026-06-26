@@ -989,26 +989,74 @@ io.on('connection', (socket) => {
         console.log(`🚪 [방 퇴장] ${socket.id} → [${roomCode}]`);
     });
 
+    // 🔄 [게임 중 재연결] 새로고침 등으로 끊긴 플레이어를 기존 게임에 다시 연결
+    socket.on('reconnectToGame', ({ roomCode, nickname }) => {
+        const code = roomCode ? roomCode.toUpperCase().trim() : '';
+        const room = activeRooms[code];
+        if (!room) {
+            socket.emit('reconnectFailed', { reason: '방을 찾을 수 없습니다.' });
+            return;
+        }
+        const player = room.players.find(p => p.nickname === nickname);
+        if (!player) {
+            socket.emit('reconnectFailed', { reason: '플레이어 정보를 찾을 수 없습니다.' });
+            return;
+        }
+        // 대기 중인 제거 타이머 취소
+        if (player._dcTimer) { clearTimeout(player._dcTimer); player._dcTimer = null; }
+        const oldId = player.id;
+        player.id = socket.id;
+        player._disconnected = false;
+        if (room.leaderID === oldId) room.leaderID = socket.id;
+        socket.join(code);
+        socket.emit('reconnectSuccess', {
+            roomCode: code,
+            players: room.players,
+            marketCards: room.marketCards,
+            currentRound: room.currentRound,
+            turnSequence: room.turnSequence,
+        });
+        console.log(`🔄 [재연결] ${nickname} → [${code}]`);
+    });
+
     // 🔌 접속 종료 처리
     socket.on('disconnect', () => {
         Object.keys(activeRooms).forEach(roomCode => {
-            let room = activeRooms[roomCode];
-            const originalLength = room.players.length;
-            room.players = room.players.filter(p => p.id !== socket.id);
+            const room = activeRooms[roomCode];
+            const player = room.players.find(p => p.id === socket.id);
+            if (!player) return;
 
-            if (room.players.length !== originalLength) {
-                if (room.players.length === 0) {
-                    delete activeRooms[roomCode];
-                    console.log(`💥 [방 폭파] [${roomCode}] 방 삭제.`);
-                } else {
-                    if (room.leaderID === socket.id) {
-                        room.leaderID = room.players[0].id; 
+            const gameInProgress = room.turnSequence && room.turnSequence.length > 0;
+
+            if (gameInProgress) {
+                // 게임 중 끊김 → 60초 유예 후 제거
+                player._disconnected = true;
+                player._dcTimer = setTimeout(() => {
+                    if (!activeRooms[roomCode]) return;
+                    room.players = room.players.filter(p => p.nickname !== player.nickname);
+                    if (room.players.length === 0) {
+                        delete activeRooms[roomCode];
+                        console.log(`💥 [방 폭파] [${roomCode}] 유예 만료 후 삭제.`);
+                    } else {
+                        if (room.leaderID === player.id) room.leaderID = room.players[0].id;
                     }
-                    io.to(roomCode).emit('roomUpdate', {
-                        roomID: roomCode,
-                        players: room.players,
-                        leaderID: room.leaderID
-                    });
+                    console.log(`⏱️ [유예 만료] ${player.nickname} 제거 [${roomCode}]`);
+                }, 60000);
+                console.log(`⏸️ [게임 중 끊김] ${player.nickname} 60초 유예 [${roomCode}]`);
+            } else {
+                // 대기실 끊김 → 즉시 제거 (기존 동작)
+                const originalLength = room.players.length;
+                room.players = room.players.filter(p => p.id !== socket.id);
+                if (room.players.length !== originalLength) {
+                    if (room.players.length === 0) {
+                        delete activeRooms[roomCode];
+                        console.log(`💥 [방 폭파] [${roomCode}] 방 삭제.`);
+                    } else {
+                        if (room.leaderID === socket.id) room.leaderID = room.players[0].id;
+                        io.to(roomCode).emit('roomUpdate', {
+                            roomID: roomCode, players: room.players, leaderID: room.leaderID
+                        });
+                    }
                 }
             }
         });
