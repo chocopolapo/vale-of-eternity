@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>The Vale of Eternity</title>
     
     <script src="/socket.io/socket.io.js"></script>
@@ -125,6 +125,25 @@
         }
         .back-btn:hover { background: rgba(30, 41, 59, 0.9); color: #e2e8f0; border-color: rgba(148, 163, 184, 0.5); }
 
+        /* BGM 토글 버튼 */
+        #bgm-toggle-btn {
+            position: fixed; bottom: 22px; right: 22px; z-index: 99999;
+            width: 46px; height: 46px; border-radius: 50%;
+            border: 1.5px solid rgba(229,184,66,0.45);
+            background: radial-gradient(circle at 40% 35%, rgba(229,184,66,0.15) 0%, rgba(8,12,26,0.88) 100%);
+            backdrop-filter: blur(8px);
+            color: #fff; font-size: 1.25rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(229,184,66,0.1);
+            transition: box-shadow 0.2s, transform 0.15s;
+            padding: 0; line-height: 1;
+        }
+        #bgm-toggle-btn:hover {
+            box-shadow: 0 0 18px rgba(229,184,66,0.4), 0 2px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(229,184,66,0.15);
+            transform: scale(1.1);
+        }
+        #bgm-toggle-btn:active { transform: scale(0.93); }
+
         /* 현재 활성화되어 켜진 화면 전용 스타일 */
         .screen.active-view {
             opacity: 1;
@@ -199,17 +218,11 @@
             100% { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
         }
 
-        /* 2번 로그인 화면 / 로비 화면 - 양피지 테마 (배경 블러 처리 공통) */
-        #auth-screen, #lobby-screen { overflow: hidden; }
-        #auth-screen::before, #lobby-screen::before {
-            content: ''; position: absolute; inset: -10px;
-            background-image: url('landing-assets/landing.jpg'); background-size: cover; background-position: center;
-            filter: blur(8px); z-index: 0;
-        }
-        #auth-screen::after, #lobby-screen::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.3); z-index: 1; }
+        /* 2번 로그인 화면 / 로비 화면 - 양피지 카드만 표시 */
+        #auth-screen, #lobby-screen { overflow: visible; }
 
         .auth-box {
-            position: relative; z-index: 2; width: 480px; padding: 85px 75px 55px; text-align: center; box-sizing: border-box;
+            position: relative; width: 480px; padding: 85px 75px 55px; text-align: center; box-sizing: border-box;
             background-image: url('landing-assets/parchment.png'); background-size: 100% 100%; background-repeat: no-repeat;
             border: none; box-shadow: 0 20px 45px rgba(0,0,0,0.55);
         }
@@ -237,7 +250,7 @@
 
         /* 3번 로비 화면 - 양피지 테마 */
         #lobby-screen { justify-content: flex-start; padding-top: 10vh; gap: 7vh; }
-        #lobby-screen .logo-title, #lobby-screen .lobby-container { position: relative; z-index: 2; }
+        #lobby-screen .logo-title, #lobby-screen .lobby-container { position: relative; }
         .lobby-container { display: flex; gap: 40px; width: 900px; max-width: 90%; animation: fadeInUp 1s ease-out; }
         .lobby-card {
             flex: 1; padding: 50px 40px; text-align: center; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
@@ -257,21 +270,15 @@
         .code-input::placeholder { color: rgba(74, 51, 24, 0.5); }
         .code-input:focus { outline: none; border-color: rgba(212, 163, 39, 0.7); background: rgba(255, 250, 240, 0.8); box-shadow: 0 0 0 3px rgba(212, 163, 39, 0.2), 0 0 14px rgba(212, 163, 39, 0.45); }
 
-       /* 4번 게임 대기실 화면 - 양피지 테마 */
-        #waiting-room { position: relative; overflow: hidden; justify-content: flex-start; padding-top: 12vh; gap: 8vh; }
-        #waiting-room::before {
-            content: ''; position: absolute; inset: -10px;
-            background-image: url('landing-assets/landing.jpg'); background-size: cover; background-position: center;
-            filter: blur(8px); z-index: 0;
-        }
-        #waiting-room::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.3); z-index: 1; }
-        #waiting-room .room-header, #waiting-room .slots-container, #waiting-room .game-ready-btn { position: relative; z-index: 2; }
+       /* 4번 게임 대기실 화면 - 양피지 카드만 표시 */
+        #waiting-room { position: relative; overflow: visible; justify-content: flex-start; padding-top: 12vh; gap: 8vh; }
+        #waiting-room .room-header, #waiting-room .slots-container, #waiting-room .game-ready-btn { position: relative; }
 
         .room-header {
             text-align: center; padding: 15px 40px; border-radius: 50px; display: flex; align-items: center; justify-content: center; gap: 20px;
-            background: rgba(20, 16, 8, 0.35); border: 1px solid rgba(212, 163, 39, 0.55);
+            background: rgba(20, 16, 8, 0.55); border: 1px solid rgba(212, 163, 39, 0.55);
             box-shadow: 0 0 0 3px rgba(212, 163, 39, 0.15), 0 0 20px rgba(212, 163, 39, 0.4);
-            backdrop-filter: blur(6px); animation: fadeInDownFast 0.6s ease-out;
+            animation: fadeInDownFast 0.6s ease-out;
         }
         .room-code-label { font-size: 0.9rem; color: #e9d3a0; letter-spacing: 2px; text-transform: uppercase; }
         .room-code-value { font-size: 1.6rem; font-weight: 700; color: #ffe9ad; letter-spacing: 4px; text-shadow: 0 0 10px rgba(229, 184, 66, 0.55); }
@@ -772,8 +779,8 @@
     <div class="screen" id="game-screen">
 
         <div class="side-panel left-panel">
-            <div class="panel-title">RIVAL STATUS</div>
-    
+            <div class="panel-title">PLAYER STATUS</div>
+
             <div id="rival-status-box"></div>
 
             <div class="left-hand-system">
@@ -1720,14 +1727,20 @@
 
         // 🌟 [기능 2] 자바스크립트 화면 전환 로직 고도화 (기존 유지)
         function changeScreen(fromId, toId) {
+            // BGM 전환: game-screen이면 game BGM, 나머지는 lobby BGM
+            if (typeof BGM !== 'undefined') {
+                if (toId === 'game-screen') BGM.play('game');
+                else BGM.play('lobby');
+            }
+
             const fromScreen = document.getElementById(fromId);
             const toScreen = document.getElementById(toId);
-    
+
             if (fromScreen) {
                 fromScreen.classList.remove('active-view');
                 fromScreen.classList.add('exit-view');
             }
-    
+
             setTimeout(() => {
                 if (toScreen) {
                     toScreen.classList.remove('exit-view');
@@ -1920,6 +1933,11 @@
             const artUrl = (cardId !== null && typeof getCardArtUrl === 'function') ? getCardArtUrl(cardId) : null;
             if (artImg && artPlaceholder) {
                 if (artUrl) {
+                    artImg.onerror = () => {
+                        artImg.style.display = 'none';
+                        artPlaceholder.style.display = 'flex';
+                        artPlaceholder.innerText = (type || '🎴').trim().split(' ')[0] || '🎴';
+                    };
                     artImg.src = artUrl;
                     artImg.style.display = 'block';
                     artPlaceholder.style.display = 'none';
@@ -2586,6 +2604,10 @@
             mySummonZone.forEach((card, index) => {
                 if (slots[index]) {
                     let bColor = card.type.includes('🔥') ? '#ff4d4d' : card.type.includes('💧') ? '#3b82f6' : card.type.includes('🍃') ? '#10b981' : card.type.includes('⛰️') ? '#e5b842' : '#e9d5ff';
+                    const _attrSym = (typeof getAttrSymbolUrl === 'function') ? getAttrSymbolUrl(card.type) : null;
+                    const costBadge = _attrSym
+                        ? `<div style="position:absolute; top:2px; left:2px; display:flex; flex-direction:column; align-items:center; gap:1px; z-index:5;"><img src="${_attrSym}" style="width:18px; height:18px; border-radius:50%; object-fit:cover; box-shadow:0 1px 3px rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.4); background:#0e111c;" onerror="this.style.display='none'"><span style="font-size:0.55rem; font-weight:800; color:#fff; background:rgba(0,0,0,0.65); border-radius:3px; padding:0 3px; line-height:1.4;">${card.cost}</span></div>`
+                        : `<div class="card-cost" style="position:absolute; top:2px; left:2px; font-size:0.6rem;">${card.cost}</div>`;
 
                     if (isRefreshOrderMode) {
                         const isRefreshCard = refreshTargetCards.some(c => c.id === card.id);
@@ -2598,7 +2620,7 @@
                         slots[index].style.cursor = 'pointer';
                         const esc = s => (s || '').replace(/'/g, "\\'");
                         slots[index].innerHTML = `
-                            <div class="card-cost" style="position:absolute; top:2px; left:2px; font-size:0.6rem;">${card.cost}</div>
+                            ${costBadge}
                             ${isChosen ? `<div style="position:absolute; top:2px; right:4px; font-size:1rem; font-weight:900; color:#f59e0b;">${chosenIdx + 1}</div>` : ''}
                             <div style="font-size:0.75rem; font-weight:700; color:${isChosen ? '#94a3b8' : '#fff'}; padding:0 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%; margin-top:14px;">${card.name}</div>
                             ${isRefreshCard && !isChosen
@@ -2614,7 +2636,7 @@
                         slots[index].style.opacity = "";
                         slots[index].style.cursor = "";
                         slots[index].innerHTML = `
-                            <div class="card-cost" style="position:absolute; top:2px; left:2px; font-size:0.6rem;">${card.cost}</div>
+                            ${costBadge}
                             <div style="font-size:0.75rem; font-weight:700; color:#fff; padding:0 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%; margin-top:15px;">${card.name}</div>
                             <div style="font-size:0.6rem; color:${bColor}; margin-top:5px;">${card.type}</div>
                         `;
@@ -2643,9 +2665,9 @@
             const returnCards = ["임프", "운디네", "진흙 슬라임", "민들레 요정"];
 
             // 🚨 [룰 준수] 일반 환기 타이밍 카드뿐만 아니라, 귀환 대상 카드들도 전부 정산 대상에 포함시킵니다!
-            refreshTargetCards = mySummonZone.filter(card => 
-                card.timing === 'refresh' || 
-                card.timing === 'both' || 
+            refreshTargetCards = mySummonZone.filter(card =>
+                card.timing === 'refresh' ||
+                (card.timing === 'both' && card.type && card.type.includes('REFRESH')) ||
                 returnCards.includes(card.name)
             );
             
@@ -2780,7 +2802,7 @@
                 if (isMimicMode) {
                     cardView.onclick = () => executeMimicClaim(card);
                 } else {
-                    cardView.onclick = () => openCardModal(card.name, card.type || '', card.cost || 0, card.summary || '', 'discard', card.id || 0);
+                    cardView.onclick = () => openCardModal(card.name, card.type || '', card.cost || 0, card.summary || '효과 설명 없음', 'discard', card.id || 0);
                 }
 
                 cardView.innerHTML = `
@@ -4072,104 +4094,91 @@
 // 🔮 [글로벌 데이터] 다른 플레이어들의 실시간 전장/자원 상태를 보관하는 메모리 허브
         let rivalsData = {}; 
 
-// 👥 [교정 완편] 구형 명단 의존성을 분쇄하고 진짜 스코어를 마이닝하는 라이벌 렌더러
+// 👥 [전체 플레이어 상태창] 선플레이어 순서대로 자신 포함 전원 표시
         function renderRivalStatusUI() {
             const targetBox = document.getElementById('rival-status-box');
             if (!targetBox) return;
 
-            targetBox.innerHTML = ''; // 실시간 청소
+            targetBox.innerHTML = '';
 
-            // 🚨 대기실 단순 명단이 아닌 주사위 공인 룸 시퀀스 배열 추적
-            let activeRivalsList = [];
+            // 선플레이어 순서 배열에서 전원 닉네임 추출 (자신 포함)
+            let allPlayers = [];
             if (typeof gameTurnOrder !== 'undefined' && gameTurnOrder.length > 0) {
-                activeRivalsList = gameTurnOrder.filter(p => p.nickname !== userNickname).map(p => p.nickname);
-            } else {
-                activeRivalsList = players.filter(name => name !== userNickname);
+                allPlayers = gameTurnOrder.map(p => p.nickname);
+            } else if (typeof players !== 'undefined') {
+                allPlayers = [...players];
             }
 
-            if (activeRivalsList.length === 0) {
+            if (allPlayers.length === 0) {
                 targetBox.innerHTML = `<div style="font-size:0.75rem; color:#64748b; text-align:center; padding:20px; letter-spacing:-0.5px;">다른 테이머들의 접속을 기다리는 중...</div>`;
                 return;
             }
 
-            activeRivalsList.forEach(name => {
-                if (!rivalsData[name]) {
-                    rivalsData[name] = { 
-                        score: 0, 
-                        stones: { red: 0, blue: 0, purple: 0 }, 
-                        summonZone: [] 
-                    };
-                }
+            allPlayers.forEach(name => {
+                const isSelf = (name === userNickname);
 
-                // 🚨 실시간 스코어 강제 매핑 추적 (보너스 점수 즉시 반영 연산)
-                if (typeof gameTurnOrder !== 'undefined') {
-                    const foundUser = gameTurnOrder.find(p => p.nickname === name);
-                    if (foundUser && rivalsData[name].score === 0) {
-                        rivalsData[name].score = foundUser.startScore || 0;
+                let score, stones, summonZoneArr;
+                if (isSelf) {
+                    score = (typeof myScore !== 'undefined') ? myScore : 0;
+                    stones = (typeof myStones !== 'undefined') ? myStones : { red: 0, blue: 0, purple: 0 };
+                    summonZoneArr = (typeof mySummonZone !== 'undefined') ? mySummonZone : [];
+                } else {
+                    if (!rivalsData[name]) rivalsData[name] = { score: 0, stones: { red: 0, blue: 0, purple: 0 }, summonZone: [] };
+                    if (typeof gameTurnOrder !== 'undefined') {
+                        const foundUser = gameTurnOrder.find(p => p.nickname === name);
+                        if (foundUser && rivalsData[name].score === 0) rivalsData[name].score = foundUser.startScore || 0;
                     }
+                    score = rivalsData[name].score;
+                    stones = rivalsData[name].stones;
+                    summonZoneArr = rivalsData[name].summonZone || [];
                 }
-
-                const data = rivalsData[name];
 
                 let summonedCardsHTML = '';
-                if (!data.summonZone || data.summonZone.length === 0) {
+                if (!summonZoneArr || summonZoneArr.length === 0) {
                     summonedCardsHTML = `<div style="font-size:0.7rem; color:#475569; padding:15px 0; text-align:center; width:100%; font-style:italic;">현재 전장이 비어있습니다.</div>`;
                 } else {
-                    data.summonZone.forEach(card => {
-                        let bColor = '#e9d5ff';
-                        if (card.type) {
-                            bColor = card.type.includes('🔥') ? '#ff4d4d' :
-                                     card.type.includes('💧') ? '#3b82f6' :
-                                     card.type.includes('🍃') ? '#10b981' :
-                                     card.type.includes('⛰️') ? '#e5b842' : '#e9d5ff';
-                        }
+                    summonZoneArr.forEach(card => {
+                        let bColor = card.type ? (card.type.includes('🔥') ? '#ff4d4d' : card.type.includes('💧') ? '#3b82f6' : card.type.includes('🍃') ? '#10b981' : card.type.includes('⛰️') ? '#e5b842' : '#e9d5ff') : '#e9d5ff';
                         const esc = s => (s || '').replace(/'/g, "\\'");
+                        const loc = isSelf ? 'info' : 'rival-summon';
                         summonedCardsHTML += `
-                            <div onclick="openCardModal('${esc(card.name)}','${esc(card.type)}','${card.cost||0}','${esc(card.summary)}','rival-summon',${card.id||0})" style="padding: 6px 10px; background: #1e293b; border-left: 3px solid ${bColor}; border-radius: 4px; font-size: 0.7rem; color: #fff; display: flex; justify-content: space-between; align-items: center; min-width: 95px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); cursor:pointer;" onmouseover="this.style.background='#2d3f55'" onmouseout="this.style.background='#1e293b'">
+                            <div onclick="openCardModal('${esc(card.name)}','${esc(card.type)}','${card.cost||0}','${esc(card.summary)}','${loc}',${card.id||0})" style="padding:6px 10px; background:#1e293b; border-left:3px solid ${bColor}; border-radius:4px; font-size:0.7rem; color:#fff; display:flex; justify-content:space-between; align-items:center; min-width:95px; box-shadow:0 2px 4px rgba(0,0,0,0.3); cursor:pointer;" onmouseover="this.style.background='#2d3f55'" onmouseout="this.style.background='#1e293b'">
                                 <span style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65px;">${card.name}</span>
-                                <span style="font-size:0.6rem; color:#64748b; font-weight:900;">${card.cost || 0}</span>
-                            </div>
-                        `;
+                                <span style="font-size:0.6rem; color:#64748b; font-weight:900;">${card.cost||0}</span>
+                            </div>`;
                     });
                 }
 
                 const isActiveTurn = (name === currentActiveTurnNickname);
-                const wrapperBorder = isActiveTurn ? '1px solid #e5b842' : '1px solid #1e293b';
+                const wrapperBorder = isActiveTurn ? '1px solid #e5b842' : (isSelf ? '1px solid rgba(96,165,250,0.3)' : '1px solid #1e293b');
                 const wrapperShadow = isActiveTurn ? '0 0 12px rgba(229,184,66,0.5)' : 'none';
+                const nameBadge = isSelf ? ` <span style="font-size:0.6rem; color:#60a5fa; font-weight:700; background:rgba(96,165,250,0.12); padding:1px 5px; border-radius:4px; border:1px solid rgba(96,165,250,0.3);">나</span>` : '';
 
                 targetBox.innerHTML += `
-                    <div class="rival-card-wrapper" style="margin-bottom: 12px; border-radius: 6px; overflow: hidden; border: ${wrapperBorder}; background: rgba(30, 41, 59, 0.15); transition: all 0.3s ease; box-shadow: ${wrapperShadow};">
-                        <div class="rival-card" onclick="toggleRivalAccordion(this)" style="cursor: pointer; margin-bottom: 0; padding: 12px; border-radius: 6px 6px 0 0; transition: background 0.2s; display: flex; flex-direction: column; gap: 8px;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
-                            <div class="rival-info" style="display: flex; justify-content: space-between; align-items: center; width: 100%; height: auto;">
-                                <span class="rival-name" style="font-size: 0.85rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;">
-                                    🧙‍♂️ ${name}
+                    <div class="rival-card-wrapper" style="margin-bottom:12px; border-radius:6px; overflow:hidden; border:${wrapperBorder}; background:rgba(30,41,59,0.15); transition:all 0.3s ease; box-shadow:${wrapperShadow};">
+                        <div class="rival-card" onclick="toggleRivalAccordion(this)" style="cursor:pointer; margin-bottom:0; padding:12px; border-radius:6px 6px 0 0; transition:background 0.2s; display:flex; flex-direction:column; gap:8px;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                            <div class="rival-info" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                                <span class="rival-name" style="font-size:0.85rem; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;">
+                                    🧙‍♂️ ${name}${nameBadge}
                                 </span>
-                                <span class="rival-score" style="font-size: 0.8rem; color: #94a3b8; white-space: nowrap; font-weight: 700;">
-                                    Score: <b style="color: #e5b842; font-size:0.9rem; font-weight:900;" id="rival-score-${name.replace(/\s+/g, '')}">${data.score}</b>
+                                <span class="rival-score" style="font-size:0.8rem; color:#94a3b8; white-space:nowrap; font-weight:700;">
+                                    Score: <b style="color:#e5b842; font-size:0.9rem; font-weight:900;">${score}</b>
                                 </span>
                             </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                                <div class="rival-stones" style="display: flex; align-items: center; gap: 8px; margin: 0; padding: 0;">
-                                    <span class="mini-orb orb-fire"></span>
-                                    <span style="font-size:0.8rem; color:#fff; font-weight:700; margin-right: 2px;">${data.stones.red || 0}</span>
-                                    <span class="mini-orb orb-water"></span>
-                                    <span style="font-size:0.8rem; color:#fff; font-weight:700; margin-right: 2px;">${data.stones.blue || 0}</span>
-                                    <span class="mini-orb orb-purple"></span>
-                                    <span style="font-size:0.8rem; color:#fff; font-weight:700;">${data.stones.purple || 0}</span>
+                            <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                                <div class="rival-stones" style="display:flex; align-items:center; gap:8px; margin:0; padding:0;">
+                                    <span class="mini-orb orb-fire"></span><span style="font-size:0.8rem; color:#fff; font-weight:700; margin-right:2px;">${(stones||{}).red||0}</span>
+                                    <span class="mini-orb orb-water"></span><span style="font-size:0.8rem; color:#fff; font-weight:700; margin-right:2px;">${(stones||{}).blue||0}</span>
+                                    <span class="mini-orb orb-purple"></span><span style="font-size:0.8rem; color:#fff; font-weight:700;">${(stones||{}).purple||0}</span>
                                 </div>
-                                <span class="arrow-indicator-text" style="font-size: 0.65rem; color: #475569; font-weight: normal; font-family: sans-serif; white-space: nowrap; background: rgba(30, 41, 59, 0.4); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.03);">
-                                    ▼ 전장 확장
-                                </span>
+                                <span class="arrow-indicator-text" style="font-size:0.65rem; color:#475569; white-space:nowrap; background:rgba(30,41,59,0.4); padding:2px 6px; border-radius:4px; border:1px solid rgba(255,255,255,0.03);">▼ 전장 확장</span>
                             </div>
                         </div>
-                        <div class="rival-field-scroll-drawer" style="display: none; padding: 12px; background: #020617; border-top: 1px solid #1e293b; max-height: 140px; overflow-y: auto;">
-                            <div style="font-size: 0.65rem; color: #475569; font-weight: 800; letter-spacing: 0.8px; margin-bottom: 10px; text-align: center; font-family: 'Noto Sans KR', sans-serif;">전장</div>
-                            <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">
-                                ${summonedCardsHTML}
-                            </div>
+                        <div class="rival-field-scroll-drawer" style="display:none; padding:12px; background:#020617; border-top:1px solid #1e293b; max-height:140px; overflow-y:auto;">
+                            <div style="font-size:0.65rem; color:#475569; font-weight:800; letter-spacing:0.8px; margin-bottom:10px; text-align:center;">전장</div>
+                            <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center;">${summonedCardsHTML}</div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
         }
 
@@ -5170,5 +5179,165 @@
         </button>
     </div>
 </div>
+
+<!-- BGM 토글 버튼 -->
+<button id="bgm-toggle-btn" onclick="BGM.toggleMute()" title="배경음악 켜기/끄기">🔊</button>
+
+<script>
+// ─── BGM 시스템 ───────────────────────────────────────────────────────────
+const BGM = (() => {
+    const TARGET_VOL  = 0.38;
+    const FADE_START  = 1.5;   // 트랙 끝 몇 초 전부터 크로스페이드 시작
+    const LOOP_FADE   = 1500;  // 루프 크로스페이드 시간 (ms) — FADE_START와 동일
+    const SWITCH_FADE = 1000;  // 화면 전환 시 페이드 시간 (ms)
+
+    // 각 컨텍스트에 2개씩 Audio 엘리먼트 (교차 루프용)
+    const tracks = {
+        lobby: [new Audio('/lobby_bgm.mp3'), new Audio('/lobby_bgm.mp3')],
+        game:  [new Audio('/game_bgm.mp3'),  new Audio('/game_bgm.mp3')],
+    };
+    Object.values(tracks).forEach(pair => pair.forEach(a => {
+        a.preload = 'auto';
+        a.volume  = 0;
+    }));
+
+    let current    = null;   // 'lobby' | 'game' | null
+    let activeIdx  = 0;      // 현재 메인 Audio 인덱스 (0 or 1)
+    let crossfading = false;
+    let rafId      = null;
+    let isMuted    = localStorage.getItem('voe_bgm_muted') === 'true';
+    let initiated  = false;  // 첫 유저 인터랙션 여부
+
+    // ── 볼륨 페이드 헬퍼 ────────────────────────────────────────────────
+    function fadeTo(audio, target, durMs, cb) {
+        const from = audio.volume;
+        const t0   = performance.now();
+        const diff = target - from;
+        function step(now) {
+            const p = Math.min((now - t0) / durMs, 1);
+            audio.volume = Math.max(0, Math.min(1, from + diff * p));
+            if (p < 1) requestAnimationFrame(step);
+            else { audio.volume = target; cb && cb(); }
+        }
+        requestAnimationFrame(step);
+    }
+
+    function silenceAndStop(a, durMs) {
+        if (!a.paused) fadeTo(a, 0, durMs, () => { a.pause(); a.currentTime = 0; });
+        else { a.volume = 0; a.currentTime = 0; }
+    }
+
+    // ── 루프 크로스페이드 모니터 ─────────────────────────────────────────
+    function startMonitor(ctxName) {
+        if (rafId) cancelAnimationFrame(rafId);
+        crossfading = false;
+
+        function tick() {
+            if (current !== ctxName) return; // 컨텍스트 바뀌면 종료
+            const pair = tracks[ctxName];
+            const main = pair[activeIdx];
+
+            if (main.duration > 0) {
+                const rem = main.duration - main.currentTime;
+                if (rem <= FADE_START && rem > 0 && !crossfading) {
+                    crossfading = true;
+                    const ni    = 1 - activeIdx;
+                    const next  = pair[ni];
+                    next.currentTime = 0;
+                    next.volume = 0;
+                    next.play().catch(e => console.warn('[BGM] loop play() 실패:', ctxName, e));
+                    // 새 트랙 페이드 인
+                    fadeTo(next, isMuted ? 0 : TARGET_VOL, LOOP_FADE);
+                    // 기존 트랙 페이드 아웃
+                    const prevIdx = activeIdx;
+                    fadeTo(main, 0, LOOP_FADE, () => {
+                        main.pause();
+                        main.currentTime = 0;
+                        activeIdx   = ni;
+                        crossfading = false;
+                    });
+                }
+            }
+            rafId = requestAnimationFrame(tick);
+        }
+        rafId = requestAnimationFrame(tick);
+    }
+
+    // ── 컨텍스트 전환 (화면 전환 시 호출) ───────────────────────────────
+    function play(ctxName) {
+        if (!initiated) {
+            // 아직 첫 인터랙션 전이면 보류 컨텍스트만 기록
+            _pending = ctxName;
+            return;
+        }
+        if (current === ctxName) return; // 이미 같은 트랙 중이면 스킵
+
+        const prev = current;
+        current   = ctxName;
+        activeIdx = 0;
+
+        // 이전 컨텍스트 페이드 아웃
+        if (prev) {
+            tracks[prev].forEach(a => silenceAndStop(a, SWITCH_FADE));
+        }
+        if (rafId) cancelAnimationFrame(rafId);
+
+        // 새 컨텍스트 메인 트랙 페이드 인
+        const main = tracks[ctxName][0];
+        main.currentTime = 0;
+        main.volume = 0;
+        main.play().catch(e => console.warn('[BGM] play() 실패:', ctxName, e));
+        fadeTo(main, isMuted ? 0 : TARGET_VOL, SWITCH_FADE);
+
+        // 서브 트랙은 준비만
+        const sub = tracks[ctxName][1];
+        sub.currentTime = 0;
+        sub.volume = 0;
+
+        startMonitor(ctxName);
+    }
+
+    let _pending = 'lobby'; // 첫 인터랙션 전 보류 컨텍스트
+
+    function _onFirstInteraction() {
+        if (initiated) return;
+        initiated = true;
+        document.removeEventListener('click',   _onFirstInteraction);
+        document.removeEventListener('keydown', _onFirstInteraction);
+        const ctx = _pending;
+        _pending  = null;
+        current   = null; // force play
+        play(ctx);
+    }
+
+    // ── 음소거 토글 ──────────────────────────────────────────────────────
+    function toggleMute() {
+        isMuted = !isMuted;
+        localStorage.setItem('voe_bgm_muted', isMuted);
+        if (current) {
+            const target = isMuted ? 0 : TARGET_VOL;
+            tracks[current].forEach(a => { if (!a.paused) fadeTo(a, target, 300); });
+        }
+        _updateBtn();
+    }
+
+    function _updateBtn() {
+        const btn = document.getElementById('bgm-toggle-btn');
+        if (btn) btn.textContent = isMuted ? '🔇' : '🔊';
+    }
+
+    // ── 초기화 ───────────────────────────────────────────────────────────
+    function init() {
+        _updateBtn();
+        document.addEventListener('click',   _onFirstInteraction, { once: false });
+        document.addEventListener('keydown', _onFirstInteraction, { once: false });
+    }
+
+    return { play, toggleMute, init };
+})();
+
+// DOM 준비되면 초기화
+document.addEventListener('DOMContentLoaded', () => BGM.init());
+</script>
 </body>
 </html>
