@@ -393,6 +393,122 @@
         .game-over-row .gor-detail { font-size: 0.78rem; font-weight: 500; opacity: 0.8; }
         .game-over-close-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, #d4a327 0%, #835d06 100%); border: none; color: #fff; font-weight: 700; font-size: 1rem; border-radius: 6px; cursor: pointer; transition: filter 0.2s ease; }
         .game-over-close-btn:hover { filter: brightness(1.15); }
+
+        /* ─ 게임 방법 버튼 (로비) ─ */
+        .howto-open-btn {
+            position: relative; z-index: 2;
+            background: transparent;
+            border: 1.5px solid rgba(212,163,39,0.5);
+            color: #c8a84b;
+            font-family: 'Cinzel', 'Noto Sans KR', sans-serif;
+            font-size: 0.82rem; font-weight: 600; letter-spacing: 2px;
+            padding: 9px 28px; border-radius: 30px; cursor: pointer;
+            transition: all 0.25s ease;
+            text-transform: uppercase;
+        }
+        .howto-open-btn:hover {
+            background: rgba(212,163,39,0.12);
+            border-color: rgba(212,163,39,0.85);
+            color: #e5c96a;
+            box-shadow: 0 0 14px rgba(212,163,39,0.25);
+        }
+
+        /* ─ 게임 방법 모달 오버레이 ─ */
+        #howto-modal {
+            display: none; position: fixed; inset: 0; z-index: 10002;
+            align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.72);
+            backdrop-filter: blur(5px);
+        }
+        #howto-modal.open { display: flex; }
+
+        /* 모달 컨테이너 */
+        .howto-container {
+            position: relative;
+            width: 420px; max-width: 92vw;
+            background-image: url('landing-assets/parchment.png');
+            background-size: 100% 100%; background-repeat: no-repeat;
+            padding: 52px 44px 40px;
+            box-sizing: border-box;
+            box-shadow: 0 30px 70px rgba(0,0,0,0.65);
+            animation: fadeInUp 0.35s ease-out;
+        }
+
+        /* 닫기 버튼 */
+        .howto-close-btn {
+            position: absolute; top: 14px; right: 16px;
+            background: none; border: none; cursor: pointer;
+            color: #7a5c2e; font-size: 1.3rem; line-height: 1;
+            transition: color 0.2s, transform 0.15s;
+            font-family: sans-serif;
+        }
+        .howto-close-btn:hover { color: #3b2008; transform: scale(1.2); }
+
+        /* 슬라이더 뷰포트 */
+        .howto-slider-viewport {
+            overflow: hidden;
+            width: 100%;
+        }
+        .howto-slider-track {
+            display: flex;
+            transition: transform 0.4s cubic-bezier(0.25,1,0.5,1);
+            will-change: transform;
+        }
+        /* 개별 슬라이드 */
+        .howto-slide {
+            min-width: 100%; box-sizing: border-box;
+            display: flex; flex-direction: column;
+            align-items: center; text-align: center;
+            gap: 14px;
+            padding: 0 4px;
+        }
+        .howto-slide-art {
+            width: 100%; display: flex; align-items: center; justify-content: center;
+            height: 100px; gap: 10px;
+        }
+        .howto-slide-art img { max-height: 90px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
+        .howto-slide-title {
+            font-family: 'Cinzel', 'Noto Sans KR', sans-serif;
+            font-size: 1.05rem; font-weight: 700; letter-spacing: 1.5px;
+            color: #c8860a;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.08);
+            line-height: 1.3;
+        }
+        .howto-slide-step {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 0.7rem; font-weight: 700; letter-spacing: 2px;
+            color: #a07838; text-transform: uppercase; margin-bottom: -6px;
+        }
+        .howto-slide-desc {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 0.82rem; color: #5c4322; line-height: 1.75;
+            word-break: keep-all;
+        }
+
+        /* 내비게이션 */
+        .howto-nav {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 20px; gap: 8px;
+        }
+        .howto-nav-btn {
+            background: none; border: 1px solid rgba(120,90,50,0.35);
+            color: #7a5c2e; font-size: 1rem; width: 34px; height: 34px;
+            border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .howto-nav-btn:hover { background: rgba(212,163,39,0.12); border-color: #c8860a; color: #c8860a; }
+        .howto-nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+        /* 인디케이터 */
+        .howto-indicators {
+            display: flex; gap: 7px; align-items: center;
+        }
+        .howto-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: rgba(120,90,50,0.25);
+            cursor: pointer; transition: all 0.25s;
+        }
+        .howto-dot.active { background: #c8860a; transform: scale(1.3); }
         
         @keyframes rotateClockwise { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes fadeInDownFast { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
@@ -703,6 +819,7 @@
                 </div>
             </div>
         </div>
+        <button class="howto-open-btn" onclick="openHowtoModal()">게임 방법 ✦</button>
     </div>
 
     <div class="screen" id="waiting-room">
@@ -784,6 +901,106 @@
             <p class="game-over-subtitle" id="game-over-subtitle"></p>
             <div class="game-over-standings" id="game-over-standings"></div>
             <button class="game-over-close-btn" onclick="document.getElementById('game-over-overlay').style.display='none';">닫기</button>
+        </div>
+    </div>
+
+    <!-- 📖 게임 방법 모달 -->
+    <div id="howto-modal" onclick="closeHowtoIfOutside(event)">
+        <div class="howto-container" id="howto-content">
+            <button class="howto-close-btn" onclick="closeHowtoModal()" aria-label="닫기">✕</button>
+
+            <div class="howto-slider-viewport">
+                <div class="howto-slider-track" id="howto-track">
+
+                    <!-- 슬라이드 1: 게임 목표 -->
+                    <div class="howto-slide">
+                        <div class="howto-slide-art">
+                            <img src="landing-assets/orbit.png" alt="게임 목표" style="max-height:95px; animation:rotateClockwise 20s linear infinite;">
+                        </div>
+                        <div class="howto-slide-step">Step 1</div>
+                        <div class="howto-slide-title">게임 목표</div>
+                        <p class="howto-slide-desc">정령과 몬스터를 길들이는 테이머가 되어, 가장 희귀하고 고귀한 드래곤을 비롯한 소환수들을 모아 최고의 테이머가 되어라. 가장 높은 점수를 쌓은 플레이어가 승리한다.</p>
+                    </div>
+
+                    <!-- 슬라이드 2: 차례 정하기 -->
+                    <div class="howto-slide">
+                        <div class="howto-slide-art">
+                            <img src="landing-assets/star.png" alt="별 마커" style="max-height:62px;">
+                            <img src="landing-assets/moon.png" alt="달 마커" style="max-height:62px;">
+                            <img src="landing-assets/sun.png"  alt="해 마커" style="max-height:62px;">
+                        </div>
+                        <div class="howto-slide-step">Step 2</div>
+                        <div class="howto-slide-title">차례 정하기</div>
+                        <p class="howto-slide-desc">게임이 시작되면 마커 3개가 등장한다. 10초 안에 원하는 마커를 선택하면, 선택 결과에 따라 플레이 순서가 정해진다.</p>
+                    </div>
+
+                    <!-- 슬라이드 3: 한 라운드의 흐름 -->
+                    <div class="howto-slide">
+                        <div class="howto-slide-art" style="gap:18px;">
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+                                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ff6b35,#c0392b);box-shadow:0 3px 10px rgba(255,80,0,0.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🔍</div>
+                                <span style="font-size:0.6rem;color:#7a5c2e;font-weight:700;letter-spacing:1px;">DRAFT</span>
+                            </div>
+                            <div style="color:#c8860a;font-size:1rem;">→</div>
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+                                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#1e40af);box-shadow:0 3px 10px rgba(59,130,246,0.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">⚔️</div>
+                                <span style="font-size:0.6rem;color:#7a5c2e;font-weight:700;letter-spacing:1px;">ACTION</span>
+                            </div>
+                            <div style="color:#c8860a;font-size:1rem;">→</div>
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+                                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#10b981,#065f46);box-shadow:0 3px 10px rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">♻️</div>
+                                <span style="font-size:0.6rem;color:#7a5c2e;font-weight:700;letter-spacing:1px;">REFRESH</span>
+                            </div>
+                        </div>
+                        <div class="howto-slide-step">Step 3</div>
+                        <div class="howto-slide-title">한 라운드의 흐름</div>
+                        <p class="howto-slide-desc">사냥 단계에서 카드를 선점하고, 행동 단계에서 소환·길들이기·판매·제거를 자유롭게 조합하며, 환기 단계에서 소환된 카드들의 환기 효과를 처리한다.</p>
+                    </div>
+
+                    <!-- 슬라이드 4: 정령 모으기와 마법석 -->
+                    <div class="howto-slide">
+                        <div class="howto-slide-art" style="gap:16px; flex-direction:column;">
+                            <div style="display:flex;gap:14px;align-items:center;justify-content:center;">
+                                <div style="width:32px;height:32px;border-radius:50%;background:radial-gradient(circle,#ff6b35,#c0392b);box-shadow:0 3px 12px rgba(255,80,0,0.5);"></div>
+                                <div style="width:32px;height:32px;border-radius:50%;background:radial-gradient(circle,#60a5fa,#1e40af);box-shadow:0 3px 12px rgba(59,130,246,0.5);"></div>
+                                <div style="width:32px;height:32px;border-radius:50%;background:radial-gradient(circle,#c084fc,#7c3aed);box-shadow:0 3px 12px rgba(192,132,252,0.5);"></div>
+                            </div>
+                            <img src="landing-assets/seal.png" alt="소환" style="max-height:46px; opacity:0.85;">
+                        </div>
+                        <div class="howto-slide-step">Step 4</div>
+                        <div class="howto-slide-title">정령 모으기와 마법석</div>
+                        <p class="howto-slide-desc">마커를 올린 카드는 마법석을 내고 소환하거나, 손에 들고 나중에 쓰거나, 팔아서 마법석을 받을 수 있다. 마법석은 최대 4개, 소환된 카드는 라운드 수만큼만 놓을 수 있다.</p>
+                    </div>
+
+                    <!-- 슬라이드 5: 게임 종료와 승리 -->
+                    <div class="howto-slide">
+                        <div class="howto-slide-art" style="gap:12px;">
+                            <img src="landing-assets/star.png" alt="승리" style="max-height:70px; filter:drop-shadow(0 0 14px rgba(229,184,66,0.7)); animation:glowPulse 2s ease-in-out infinite;">
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                                <span style="font-family:'Cinzel',sans-serif;font-size:1.8rem;font-weight:900;color:#d4a327;text-shadow:0 0 12px rgba(212,163,39,0.5);">60</span>
+                                <span style="font-size:0.62rem;color:#a07838;font-weight:700;letter-spacing:1px;">POINTS</span>
+                            </div>
+                        </div>
+                        <div class="howto-slide-step">Step 5</div>
+                        <div class="howto-slide-title">게임 종료와 승리</div>
+                        <p class="howto-slide-desc">누군가의 점수가 60점 이상이 되거나 10라운드가 끝나면 게임이 종료된다. 가장 높은 점수를 낸 플레이어가 승리하며, 동점이면 소환된 카드가 더 많은 플레이어가 승리한다.</p>
+                    </div>
+
+                </div><!-- /howto-slider-track -->
+            </div><!-- /howto-slider-viewport -->
+
+            <!-- 내비게이션 -->
+            <div class="howto-nav">
+                <button class="howto-nav-btn" id="howto-prev" onclick="moveHowtoSlide(-1)" aria-label="이전">‹</button>
+                <div class="howto-indicators" id="howto-dots">
+                    <div class="howto-dot active" onclick="goHowtoSlide(0)"></div>
+                    <div class="howto-dot"        onclick="goHowtoSlide(1)"></div>
+                    <div class="howto-dot"        onclick="goHowtoSlide(2)"></div>
+                    <div class="howto-dot"        onclick="goHowtoSlide(3)"></div>
+                    <div class="howto-dot"        onclick="goHowtoSlide(4)"></div>
+                </div>
+                <button class="howto-nav-btn" id="howto-next" onclick="moveHowtoSlide(1)" aria-label="다음">›</button>
+            </div>
         </div>
     </div>
 
@@ -5195,6 +5412,50 @@
         </button>
     </div>
 </div>
+
+<!-- 게임 방법 슬라이더 -->
+<script>
+let _howtoSlide = 0;
+const HOWTO_TOTAL = 5;
+
+function openHowtoModal() {
+    _howtoSlide = 0;
+    _updateHowtoSlider();
+    document.getElementById('howto-modal').classList.add('open');
+}
+function closeHowtoModal() {
+    document.getElementById('howto-modal').classList.remove('open');
+}
+function closeHowtoIfOutside(e) {
+    if (e.target === document.getElementById('howto-modal')) closeHowtoModal();
+}
+function moveHowtoSlide(dir) {
+    _howtoSlide = Math.max(0, Math.min(HOWTO_TOTAL - 1, _howtoSlide + dir));
+    _updateHowtoSlider();
+}
+function goHowtoSlide(idx) {
+    _howtoSlide = idx;
+    _updateHowtoSlider();
+}
+function _updateHowtoSlider() {
+    const track = document.getElementById('howto-track');
+    if (track) track.style.transform = `translateX(-${_howtoSlide * 100}%)`;
+    const dots = document.querySelectorAll('.howto-dot');
+    dots.forEach((d, i) => d.classList.toggle('active', i === _howtoSlide));
+    const prev = document.getElementById('howto-prev');
+    const next = document.getElementById('howto-next');
+    if (prev) prev.disabled = (_howtoSlide === 0);
+    if (next) next.disabled = (_howtoSlide === HOWTO_TOTAL - 1);
+}
+// 키보드 좌우 화살표 지원
+document.addEventListener('keydown', (e) => {
+    const modal = document.getElementById('howto-modal');
+    if (!modal || !modal.classList.contains('open')) return;
+    if (e.key === 'ArrowLeft')  moveHowtoSlide(-1);
+    if (e.key === 'ArrowRight') moveHowtoSlide(1);
+    if (e.key === 'Escape')     closeHowtoModal();
+});
+</script>
 
 <!-- 게임 세션 저장 / 재연결 -->
 <script>
