@@ -558,6 +558,7 @@
 
         /* 🗗 팝업 모달창 시스템 */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 999; }
+        #card-modal { z-index: 10001 !important; }
         .modal-content { background: #0e111c; border: 2px solid #e5b842; border-radius: 8px; padding: 24px; width: 560px; max-width: 92vw; text-align: left; box-shadow: 0 0 30px rgba(212,163,39,0.3); position: relative; animation: fadeInDownFast 0.3s ease; }
         /* 🖼️ [카드 디자인] 손패/소환존/드래프트 슬롯 클릭 시 디자인 이미지를 설명과 함께 보여준다.
            이미지(2:3 세로 비율)는 왼쪽 칼럼에, 텍스트/버튼은 오른쪽 칼럼에 둬서 이미지가 안 잘리게 한다. */
@@ -844,7 +845,7 @@
 
 
             <div class="player-board">
-                <div class="board-label">SUMMON ZONE</div>
+                <div class="board-label" id="summon-zone-label">SUMMON ZONE</div>
                 <div class="my-summon-zone">
                     <div class="summon-slot">빈 전장 1</div>
                     <div class="summon-slot locked">🔒 R2 해제</div>
@@ -871,28 +872,11 @@
         </div>
 
     </div> <div id="refresh-order-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; padding: 15px;">
-        
-        <div id="refresh-main-box" style="background: #1e293b; padding: 24px; border-radius: 12px; width: 100%; max-width: 480px; border: 2px solid #475569; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: block;">
-            <h3 style="margin-top: 0; color: #f59e0b; text-align: center; white-space: nowrap; font-size: 1.1rem; letter-spacing: -0.3px;">⧖ 환기 효과 발동 순서 지정</h3>
-            <p style="font-size: 0.82rem; color: #94a3b8; text-align: center; margin-bottom: 20px; word-break: keep-all;">카드를 클릭하여 먼저 발동할 순서대로 배치하세요.</p>
-        
-            <div id="refresh-my-cards" style="display: flex; gap: 10px; justify-content: center; margin: 20px 0; flex-wrap: wrap; width: 100%;"></div>
-        
-            <div style="text-align: center; margin: 20px 0; font-weight: bold; color: #3b82f6; font-size: 0.85rem; background: rgba(15, 23, 42, 0.4); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.02); overflow-x: auto; white-space: nowrap;">
-                <span style="color: #3b82f6; flex-shrink: 0; margin-right: 4px;">➡️ 발동 예정 순서:</span> 
-                <span id="refresh-selected-route" style="color: #10b981; white-space: nowrap;">[ 설정 전 ]</span>
-            </div>
-
-            <div style="display: flex; gap: 10px; width: 100%;">
-                <button onclick="resetRefreshOrder()" style="flex: 1; padding: 11px; background: #475569; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85rem; white-space: nowrap; transition: background 0.2s;" onmouseover="this.style.background='#57687e'" onmouseout="this.style.background='#475569'">🔄 다시 고르기</button>
-                <button onclick="confirmRefreshOrder()" style="flex: 1; padding: 11px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85rem; white-space: nowrap; transition: background 0.2s;" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#10b981'">✅ 순서 확정 및 발동</button>
-            </div>
-        </div>
 
         <div id="asmodeus-select-box" style="display: none; background: #0f172a; padding: 24px; border-radius: 12px; width: 100%; max-width: 340px; border: 2px solid #3b82f6; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.7); flex-direction: column; align-items: center; gap: 12px;">
             <h3 style="margin-top: 0; color: #ff4d4d; text-align: center; white-space: nowrap; font-size: 1rem; letter-spacing: -0.3px;">😈 아스모데우스의 계약</h3>
             <p style="color: #94a3b8; font-size: 0.78rem; text-align: center; margin: 0; word-break: keep-all; line-height: 1.4;">전장에서 귀환시킬 2코 이하 즉발 카드를 1장 선택하세요.</p>
-        
+
             <div id="asmodeus-target-list" style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-height: 180px; overflow-y: auto; padding: 4px 2px; margin: 10px 0;"></div>
         </div>
 
@@ -2501,8 +2485,20 @@
         // 🔄 내 전장 슬롯(MY SUMMON ZONE) 화면 실시간 갱신 함수 (4번 제거 액션 연동)
         function updateSummonZoneUI() {
             const slots = document.querySelectorAll('.my-summon-zone .summon-slot');
+            const label = document.getElementById('summon-zone-label');
             if (!slots.length) return;
-            
+
+            // 환기 순서 지정 모드일 때 레이블 교체
+            if (label) {
+                if (isRefreshOrderMode) {
+                    label.style.color = '#f59e0b';
+                    label.innerHTML = `⟳ 환기 순서 지정 (${chosenRefreshOrder.length}/${refreshTargetCards.length}) &nbsp;<span onclick="resetRefreshOrder()" style="font-size:0.7rem; color:#64748b; cursor:pointer; text-decoration:underline; font-family:'Noto Sans KR',sans-serif;">초기화</span>`;
+                } else {
+                    label.style.color = '';
+                    label.innerText = 'SUMMON ZONE';
+                }
+            }
+
             // 모든 슬롯 초기화
             slots.forEach((slot, index) => {
                 const rNum = index + 1;
@@ -2511,11 +2507,15 @@
                     slot.innerHTML = `🔒 R${rNum} 해제`;
                     slot.onclick = null;
                     slot.style.borderColor = "";
+                    slot.style.opacity = "";
+                    slot.style.cursor = "";
                 } else {
                     slot.className = "summon-slot";
                     slot.innerHTML = `빈 전장 ${rNum}`;
                     slot.onclick = null;
                     slot.style.borderColor = "";
+                    slot.style.opacity = "";
+                    slot.style.cursor = "";
                 }
             });
 
@@ -2523,16 +2523,41 @@
             mySummonZone.forEach((card, index) => {
                 if (slots[index]) {
                     let bColor = card.type.includes('🔥') ? '#ff4d4d' : card.type.includes('💧') ? '#3b82f6' : card.type.includes('🍃') ? '#10b981' : card.type.includes('⛰️') ? '#e5b842' : '#e9d5ff';
-                    slots[index].className = "summon-slot active-card";
-                    slots[index].style.borderColor = bColor;
-                    slots[index].innerHTML = `
-                        <div class="card-cost" style="position:absolute; top:2px; left:2px; font-size:0.6rem;">${card.cost}</div>
-                        <div style="font-size:0.75rem; font-weight:700; color:#fff; padding:0 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%; margin-top:15px;">${card.name}</div>
-                        <div style="font-size:0.6rem; color:${bColor}; margin-top:5px;">${card.type}</div>
-                    `;
-                    
-                    let escapedSummary = card.summary ? card.summary.replace(/'/g, "\\'") : "상세 설명";
-                    slots[index].onclick = () => openCardModal(card.name, card.type, card.cost, escapedSummary, 'summon', card.id);
+
+                    if (isRefreshOrderMode) {
+                        const isRefreshCard = refreshTargetCards.some(c => c.id === card.id);
+                        const chosenIdx = chosenRefreshOrder.findIndex(c => c.id === card.id);
+                        const isChosen = chosenIdx !== -1;
+
+                        slots[index].className = "summon-slot active-card";
+                        slots[index].style.borderColor = isChosen ? '#334155' : (isRefreshCard ? '#f59e0b' : bColor);
+                        slots[index].style.opacity = isChosen ? '0.5' : '1';
+                        slots[index].style.cursor = (isRefreshCard && !isChosen) ? 'pointer' : 'default';
+                        slots[index].innerHTML = `
+                            <div class="card-cost" style="position:absolute; top:2px; left:2px; font-size:0.6rem;">${card.cost}</div>
+                            ${isChosen ? `<div style="position:absolute; top:2px; right:4px; font-size:1rem; font-weight:900; color:#f59e0b;">${chosenIdx + 1}</div>` : ''}
+                            <div style="font-size:0.75rem; font-weight:700; color:${isChosen ? '#64748b' : '#fff'}; padding:0 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%; margin-top:15px;">${card.name}</div>
+                            <div style="font-size:0.6rem; color:${isChosen ? '#475569' : (isRefreshCard ? '#f59e0b' : bColor)}; margin-top:5px;">${isChosen ? '완료' : (isRefreshCard ? '클릭→순서' : card.type)}</div>
+                        `;
+                        if (isRefreshCard && !isChosen) {
+                            slots[index].onclick = () => selectCardForRefresh(card.id);
+                        } else {
+                            let escapedSummary = card.summary ? card.summary.replace(/'/g, "\\'") : "상세 설명";
+                            slots[index].onclick = () => openCardModal(card.name, card.type, card.cost, escapedSummary, 'info', card.id);
+                        }
+                    } else {
+                        slots[index].className = "summon-slot active-card";
+                        slots[index].style.borderColor = bColor;
+                        slots[index].style.opacity = "";
+                        slots[index].style.cursor = "";
+                        slots[index].innerHTML = `
+                            <div class="card-cost" style="position:absolute; top:2px; left:2px; font-size:0.6rem;">${card.cost}</div>
+                            <div style="font-size:0.75rem; font-weight:700; color:#fff; padding:0 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%; margin-top:15px;">${card.name}</div>
+                            <div style="font-size:0.6rem; color:${bColor}; margin-top:5px;">${card.type}</div>
+                        `;
+                        let escapedSummary = card.summary ? card.summary.replace(/'/g, "\\'") : "상세 설명";
+                        slots[index].onclick = () => openCardModal(card.name, card.type, card.cost, escapedSummary, 'summon', card.id);
+                    }
                 }
             });
 
@@ -2543,6 +2568,7 @@
         // 🔄 환기 순서 제어를 위한 전역 변수
         let refreshTargetCards = []; // 전장에 있는 환기 대상 카드들
         let chosenRefreshOrder = []; // 유저가 선택한 발동 순서 배열
+        let isRefreshOrderMode = false; // 소환존 직접 순서 지정 모드
 
         // 🌀 [4구역 최종 보정본] 모든 환기 카드를 모달에 띄워 순서를 고르게 만듭니다.
         function enterRefreshPhase() {
@@ -2567,12 +2593,10 @@
             }
 
             chosenRefreshOrder = []; // 유저가 선택한 순서를 담을 배열 초기화
-            
-            // 환기 정산 순서 선택 모달창 오픈
-            const modal = document.getElementById('refresh-order-modal');
-            if (modal) modal.style.display = 'flex';
-            
-            if (typeof renderRefreshOrderOptions === 'function') renderRefreshOrderOptions();
+
+            isRefreshOrderMode = true;
+            updateSummonZoneUI();
+            logMessage(`⟳ [환기 순서] 소환존의 카드를 클릭하여 발동 순서를 지정하세요.`);
         }
 
         // 🎨 모달창 내부 렌더러
@@ -2616,13 +2640,16 @@
             const card = refreshTargetCards.find(c => c.id === cardId);
             if (card && !chosenRefreshOrder.some(c => c.id === cardId)) {
                 chosenRefreshOrder.push(card);
-                renderRefreshOrderOptions();
+                updateSummonZoneUI();
+                if (chosenRefreshOrder.length === refreshTargetCards.length) {
+                    setTimeout(() => confirmRefreshOrder(), 300);
+                }
             }
         }
 
         function resetRefreshOrder() {
             chosenRefreshOrder = [];
-            renderRefreshOrderOptions();
+            updateSummonZoneUI();
         }
 
         // 💀 [DISCARD 구역 클릭 이벤트 트리거 엔진]
@@ -2725,7 +2752,8 @@
                 return;
             }
 
-            document.getElementById('refresh-order-modal').style.display = 'none';
+            isRefreshOrderMode = false;
+            updateSummonZoneUI();
             logMessage(`🔥 [순서 확정] 유저가 지정한 순서대로 환기 효과 정산을 시작합니다.`);
 
             pendingRefreshPrompts = [];
@@ -3358,14 +3386,13 @@
 
         // 🗗 [아스모데우스 인터페이스 체인저 전용 스크립트]
         function openAsmodeusSelectModal(targets) {
-            const mainBox = document.getElementById('refresh-main-box');
             const asmoBox = document.getElementById('asmodeus-select-box');
             const listContainer = document.getElementById('asmodeus-target-list');
-            
-            if (!mainBox || !asmoBox || !listContainer) return;
+            const modal = document.getElementById('refresh-order-modal');
 
-            // 1. 기존 순서 지정 판을 숨기고, 아스모데우스 계약 판을 같은 오버레이 위에서 개방!
-            mainBox.style.display = 'none';
+            if (!asmoBox || !listContainer || !modal) return;
+
+            modal.style.display = 'flex';
             asmoBox.style.display = 'flex';
 
             listContainer.innerHTML = ''; // 리스트 청소
@@ -3393,7 +3420,6 @@
                     
                     // 🚨 정산 최종 종료 시 모달 시스템 전체 리셋 및 은폐
                     document.getElementById('refresh-order-modal').style.display = 'none';
-                    mainBox.style.display = 'block'; // 다음 턴 환기를 위해 원상복구
                     asmoBox.style.display = 'none';
                 };
                 listContainer.appendChild(btn);
@@ -3583,10 +3609,11 @@
                 currentActiveTurnNickname = data.currentTurnOwnerNickname;
             }
 
-            // MY TURN 배너 표시
+            // MY TURN 배너 표시 — 턴 주인이 새로 나로 바뀔 때만 (같은 내 턴 중 액션할 때마다 재표시 방지)
             if (data.currentTurnOwnerID === socket.id && currentPhase !== "DRAFT") {
-                showMyTurnBanner();
+                if (prevSyncTurnOwnerID !== socket.id) showMyTurnBanner();
             }
+            prevSyncTurnOwnerID = data.currentTurnOwnerID || null;
 
             // 환기 페이즈 차례 이관 제어 (currentPhase 변수로 정확히 판단)
             if (currentPhase === "REFRESH" && data.currentTurnOwnerID === socket.id) {
@@ -3728,8 +3755,9 @@
             markersPlaced = 0;
             chosenRefreshOrder = [];
             refreshTargetCards = [];
+            isRefreshOrderMode = false;
             currentActiveTurnNickname = '';
-            Object.keys(rivalsData).forEach(n => { if (rivalsData[n]) rivalsData[n].score = 0; });
+            prevSyncTurnOwnerID = null;
             const draftEndBtn = document.getElementById('draft-end-btn');
             if (draftEndBtn) draftEndBtn.style.display = 'none';
             
@@ -3801,6 +3829,7 @@
         }
 
         let currentActiveTurnNickname = '';
+        let prevSyncTurnOwnerID = null;
 
         function showMyTurnBanner() {
             const overlay = document.getElementById('myturn-banner-overlay');
