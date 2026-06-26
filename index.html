@@ -2016,7 +2016,14 @@
                 startBtn.disabled = true;
                 spawnGoldDust(startBtn);
             }
-            if (orbitStage) orbitStage.classList.add('is-launching');
+            if (orbitStage) {
+                // 이전 버튼으로 돌아왔다가 다시 시작할 때를 위해 orbit 복원
+                const stoneRing = orbitStage.querySelector('.landing-stone-ring');
+                const orbitImg  = orbitStage.querySelector('.landing-orbit-img');
+                if (stoneRing) stoneRing.style.opacity = '';
+                if (orbitImg)  orbitImg.style.opacity  = '';
+                orbitStage.classList.add('is-launching');
+            }
 
             setTimeout(() => {
                 const landing = document.getElementById('landing-screen');
@@ -2039,11 +2046,15 @@
         }
 
         function goBackFromAuth() {
-            // 마법진 복원 후 랜딩으로 복귀
-            const wrapper = document.getElementById('magic-ring');
-            if (wrapper) wrapper.style.display = '';
+            // orbit(5개 돌아가는 석)은 숨기고, 시작 버튼만 복원
             const orbitStage = document.getElementById('landing-orbit-stage');
-            if (orbitStage) orbitStage.classList.remove('is-launching');
+            if (orbitStage) {
+                const stoneRing = orbitStage.querySelector('.landing-stone-ring');
+                const orbitImg  = orbitStage.querySelector('.landing-orbit-img');
+                if (stoneRing) stoneRing.style.opacity = '0';
+                if (orbitImg)  orbitImg.style.opacity  = '0';
+                orbitStage.classList.remove('is-launching');
+            }
             const startBtn = document.getElementById('landing-start-btn');
             if (startBtn) startBtn.disabled = false;
             changeScreen('auth-screen', 'landing-screen');
