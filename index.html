@@ -218,11 +218,17 @@
             100% { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
         }
 
-        /* 2번 로그인 화면 / 로비 화면 - 양피지 카드만 표시 */
-        #auth-screen, #lobby-screen { overflow: visible; }
+        /* 2번 로그인 화면 / 로비 화면 - 양피지 테마 */
+        #auth-screen, #lobby-screen { overflow: hidden; }
+        #auth-screen::before, #lobby-screen::before {
+            content: ''; position: absolute; inset: -10px;
+            background-image: url('landing-assets/landing.jpg'); background-size: cover; background-position: center;
+            filter: blur(8px); z-index: 0;
+        }
+        #auth-screen::after, #lobby-screen::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.3); z-index: 1; }
 
         .auth-box {
-            position: relative; width: 480px; padding: 85px 75px 55px; text-align: center; box-sizing: border-box;
+            position: relative; z-index: 2; width: 480px; padding: 85px 75px 55px; text-align: center; box-sizing: border-box;
             background-image: url('landing-assets/parchment.png'); background-size: 100% 100%; background-repeat: no-repeat;
             border: none; box-shadow: 0 20px 45px rgba(0,0,0,0.55);
         }
@@ -250,7 +256,7 @@
 
         /* 3번 로비 화면 - 양피지 테마 */
         #lobby-screen { justify-content: flex-start; padding-top: 10vh; gap: 7vh; }
-        #lobby-screen .logo-title, #lobby-screen .lobby-container { position: relative; }
+        #lobby-screen .logo-title, #lobby-screen .lobby-container { position: relative; z-index: 2; }
         .lobby-container { display: flex; gap: 40px; width: 900px; max-width: 90%; animation: fadeInUp 1s ease-out; }
         .lobby-card {
             flex: 1; padding: 50px 40px; text-align: center; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
@@ -270,9 +276,15 @@
         .code-input::placeholder { color: rgba(74, 51, 24, 0.5); }
         .code-input:focus { outline: none; border-color: rgba(212, 163, 39, 0.7); background: rgba(255, 250, 240, 0.8); box-shadow: 0 0 0 3px rgba(212, 163, 39, 0.2), 0 0 14px rgba(212, 163, 39, 0.45); }
 
-       /* 4번 게임 대기실 화면 - 양피지 카드만 표시 */
-        #waiting-room { position: relative; overflow: visible; justify-content: flex-start; padding-top: 12vh; gap: 8vh; }
-        #waiting-room .room-header, #waiting-room .slots-container, #waiting-room .game-ready-btn { position: relative; }
+       /* 4번 게임 대기실 화면 - 양피지 테마 */
+        #waiting-room { position: relative; overflow: hidden; justify-content: flex-start; padding-top: 12vh; gap: 8vh; }
+        #waiting-room::before {
+            content: ''; position: absolute; inset: -10px;
+            background-image: url('landing-assets/landing.jpg'); background-size: cover; background-position: center;
+            filter: blur(8px); z-index: 0;
+        }
+        #waiting-room::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.3); z-index: 1; }
+        #waiting-room .room-header, #waiting-room .slots-container, #waiting-room .game-ready-btn { position: relative; z-index: 2; }
 
         .room-header {
             text-align: center; padding: 15px 40px; border-radius: 50px; display: flex; align-items: center; justify-content: center; gap: 20px;
