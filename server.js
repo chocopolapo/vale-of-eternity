@@ -965,6 +965,30 @@ io.on('connection', (socket) => {
         socket.emit('drawCardResult', { success: true, card: drawnCard, sourceCardName });
     });
 
+    // 🚪 [대기실 이전 버튼] 소켓은 유지하면서 방만 나가기
+    socket.on('leaveRoom', (roomCode) => {
+        if (!roomCode || !activeRooms[roomCode]) return;
+        const room = activeRooms[roomCode];
+        const originalLength = room.players.length;
+        room.players = room.players.filter(p => p.id !== socket.id);
+        socket.leave(roomCode);
+
+        if (room.players.length === 0) {
+            delete activeRooms[roomCode];
+            console.log(`💥 [방 폭파] [${roomCode}] 방장이 나가 방 삭제.`);
+        } else if (room.players.length !== originalLength) {
+            if (room.leaderID === socket.id) {
+                room.leaderID = room.players[0].id;
+            }
+            io.to(roomCode).emit('roomUpdate', {
+                roomID: roomCode,
+                players: room.players,
+                leaderID: room.leaderID
+            });
+        }
+        console.log(`🚪 [방 퇴장] ${socket.id} → [${roomCode}]`);
+    });
+
     // 🔌 접속 종료 처리
     socket.on('disconnect', () => {
         Object.keys(activeRooms).forEach(roomCode => {

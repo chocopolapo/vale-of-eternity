@@ -1811,6 +1811,20 @@
         }
 
         function goBackFromWaitingRoom() {
+            if (currentRoomID) {
+                socket.emit('leaveRoom', currentRoomID);
+            }
+            currentRoomID = "";
+            isRoomLeader = false;
+            // 대기실 슬롯 UI 초기화
+            const p1 = document.getElementById('player1-name');
+            const p2 = document.getElementById('player2-name');
+            const p3 = document.getElementById('player3-name');
+            if (p1) p1.innerText = 'LOADING...';
+            if (p2) p2.innerText = '친구 초대하기';
+            if (p3) p3.innerText = '친구 초대하기';
+            const startBtn = document.getElementById('my-start-game-button');
+            if (startBtn) startBtn.style.display = 'none';
             changeScreen('waiting-room', 'lobby-screen');
         }
 
