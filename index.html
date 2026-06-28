@@ -117,13 +117,14 @@
         /* ← 이전 버튼 (게임화면 제외 모든 화면 공통) */
         .back-btn {
             position: absolute; top: 18px; left: 20px; z-index: 20;
-            background: rgba(10, 14, 26, 0.65); color: #94a3b8;
-            border: 1px solid rgba(71, 85, 105, 0.45); border-radius: 7px;
+            background: rgba(15, 10, 2, 0.55); color: #c9a227;
+            border: 1px solid rgba(229, 184, 66, 0.38); border-radius: 7px;
             padding: 7px 14px; font-family: 'Noto Sans KR', sans-serif;
             font-size: 0.78rem; cursor: pointer; transition: all 0.2s;
             backdrop-filter: blur(6px); letter-spacing: 0.5px;
+            text-shadow: 0 0 8px rgba(229,184,66,0.3);
         }
-        .back-btn:hover { background: rgba(30, 41, 59, 0.9); color: #e2e8f0; border-color: rgba(148, 163, 184, 0.5); }
+        .back-btn:hover { background: rgba(229, 184, 66, 0.12); color: #f0c84a; border-color: rgba(229, 184, 66, 0.65); }
 
         /* BGM 토글 버튼 */
         #bgm-toggle-btn {
@@ -3322,16 +3323,8 @@
 
                     case 306:
                     case "바실리스크":
-                        let bChoice = prompt("🦎 [바실리스크 가치 교환]\n1: 0점 소모 ➡️ 🔴 획득\n2: 1점 소모 ➡️ 🔵 획득\n3: 2점 소모 ➡️ 🟣 획득");
-                        if (bChoice === "1") {
-                            gainStone('red');
-                        } else if (bChoice === "2") {
-                            myScore = Math.max(0, myScore - 1);
-                            gainStone('blue');
-                        } else if (bChoice === "3") {
-                            myScore = Math.max(0, myScore - 2);
-                            gainStone('purple');
-                        }
+                        pendingRefreshPrompts.push('basilisk');
+                        logMessage(`   ↳ 🦎 [바실리스크 환기] 정산이 모두 끝나면 점수를 소모해 마법석을 획득할 방식을 선택합니다.`);
                         break;
 
                     case 307:
@@ -3447,6 +3440,8 @@
                 runGoblinStealPrompt();
             } else if (next === 'jinni_senior') {
                 runJinniSeniorCopyPrompt();
+            } else if (next === 'basilisk') {
+                runBasiliskPrompt();
             } else {
                 processNextRefreshPrompt();
             }
@@ -3566,6 +3561,43 @@
                 roomID: currentRoomID,
                 targetNickname: targetNickname,
                 casterNickname: userNickname
+            });
+
+            processNextRefreshPrompt();
+        }
+
+        // 🦎 [바실리스크 전용] 점수를 소모해 마법석으로 교환하는 방식을 선택하는 팝업.
+        function runBasiliskPrompt() {
+            const modal = document.getElementById('basilisk-modal');
+            if (!modal) { processNextRefreshPrompt(); return; }
+            const scoreInfo = document.getElementById('basilisk-score-info');
+            if (scoreInfo) scoreInfo.innerText = `현재 승점: ${myScore}점`;
+            modal.style.display = 'flex';
+        }
+
+        function executeBasiliskChoice(cost) {
+            const modal = document.getElementById('basilisk-modal');
+            if (modal) modal.style.display = 'none';
+
+            const stoneMap = [['red','🔴 빨간'], ['blue','🔵 파란'], ['purple','🟣 보라']];
+            const [stoneColor, stoneLabel] = stoneMap[cost];
+            myScore = Math.max(0, myScore - cost);
+            gainStone(stoneColor);
+            logMessage(`   ↳ 🦎 [바실리스크 환기] 승점 ${cost}점 소모 → ${stoneLabel} 마법석 획득!`);
+
+            if (typeof updateResourcesUI === 'function') updateResourcesUI();
+            const scoreEl = document.getElementById('my-score');
+            if (scoreEl) scoreEl.innerText = myScore;
+
+            socket.emit('playerExecutedAction', {
+                roomID: currentRoomID,
+                actionType: 'scoreAdjust',
+                cardName: '바실리스크',
+                userNickname: userNickname,
+                currentScore: myScore,
+                currentStones: myStones,
+                currentSummonZone: mySummonZone,
+                reason: `basilisk_cost${cost}`
             });
 
             processNextRefreshPrompt();
@@ -5408,6 +5440,32 @@
 
 
     </script>
+<!-- 🦎 바실리스크 가치 교환 모달 -->
+<div id="basilisk-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; padding:15px;">
+    <div style="background:#1e293b; padding:24px; border-radius:12px; width:100%; max-width:340px; border:2px solid #10b981; color:white; box-shadow:0 10px 25px rgba(0,0,0,0.5); text-align:center;">
+        <h3 style="margin-top:0; color:#10b981; font-size:1.05rem; margin-bottom:6px;">🦎 바실리스크 — 가치 교환</h3>
+        <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:18px; word-break:keep-all;">점수를 소모하여 마법석을 획득합니다. 아래 3가지 중 하나를 선택하세요.</p>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <button onclick="executeBasiliskChoice(0)"
+                style="padding:13px; background:#1e293b; color:#ff7676; border:1.5px solid #ff4d4d; border-radius:8px; cursor:pointer; font-size:0.88rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; transition:background 0.2s;"
+                onmouseover="this.style.background='rgba(255,77,77,0.15)'" onmouseout="this.style.background='#1e293b'">
+                0점 소모 → 🔴 빨간 마법석 획득
+            </button>
+            <button onclick="executeBasiliskChoice(1)"
+                style="padding:13px; background:#1e293b; color:#60a5fa; border:1.5px solid #3b82f6; border-radius:8px; cursor:pointer; font-size:0.88rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; transition:background 0.2s;"
+                onmouseover="this.style.background='rgba(59,130,246,0.15)'" onmouseout="this.style.background='#1e293b'">
+                1점 소모 → 🔵 파란 마법석 획득
+            </button>
+            <button onclick="executeBasiliskChoice(2)"
+                style="padding:13px; background:#1e293b; color:#c084fc; border:1.5px solid #a855f7; border-radius:8px; cursor:pointer; font-size:0.88rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; transition:background 0.2s;"
+                onmouseover="this.style.background='rgba(168,85,247,0.15)'" onmouseout="this.style.background='#1e293b'">
+                2점 소모 → 🟣 보라 마법석 획득
+            </button>
+        </div>
+        <p id="basilisk-score-info" style="font-size:0.75rem; color:#64748b; margin-top:14px; margin-bottom:0;"></p>
+    </div>
+</div>
+
 <!-- 🔴🔵🟣 마법석 한도 초과 시 교체 선택 모달창 -->
 <div id="stone-replace-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; justify-content: center; align-items: center; color: white; font-family: sans-serif;">
     <div style="background: #222; padding: 25px; border-radius: 12px; border: 2px solid #ff4500; text-align: center; max-width: 400px; width: 90%;">
@@ -5497,62 +5555,70 @@ function saveGameState() {
         const raw = localStorage.getItem('voe_session');
         if (!raw) return;
         const saved = JSON.parse(raw);
-        // 10분 이상 지난 세션은 무시
         if (!saved || Date.now() - saved.ts > 600000) {
             localStorage.removeItem('voe_session');
             return;
         }
 
-        // socket이 아직 없을 수 있어서 DOMContentLoaded 이후 실행
-        document.addEventListener('DOMContentLoaded', () => {
-            if (typeof socket === 'undefined') return;
+        // 세션 감지 즉시: 재연결 오버레이로 랜딩 화면 가리기 (플래시 방지)
+        const overlay = document.createElement('div');
+        overlay.id = 'reconnect-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:#06070a;z-index:999999;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:14px;';
+        overlay.innerHTML = '<div style="font-size:2.2rem">🔮</div><div style="font-size:0.9rem;letter-spacing:3px;color:#e5b842;font-family:\'Noto Sans KR\',sans-serif;opacity:0.85;">재연결 중...</div>';
+        document.body.appendChild(overlay);
 
+        if (typeof socket === 'undefined') { overlay.remove(); return; }
+
+        // 소켓이 이미 연결되어 있으면 즉시 전송, 아니면 connect 이후 전송
+        const doReconnect = () => {
             socket.emit('reconnectToGame', { roomCode: saved.roomCode, nickname: saved.nickname });
+        };
+        if (socket.connected) { doReconnect(); } else { socket.once('connect', doReconnect); }
 
-            socket.once('reconnectSuccess', (data) => {
-                // 핵심 변수 복원
-                userNickname = saved.nickname;
-                currentRoomID = saved.roomCode;
-                if (typeof currentRound !== 'undefined') currentRound = saved.currentRound;
-                if (typeof currentPhase !== 'undefined') currentPhase = saved.currentPhase;
-                if (typeof myScore !== 'undefined') myScore = saved.myScore;
-                if (typeof myStones !== 'undefined') myStones = saved.myStones;
-                if (typeof mySummonZone !== 'undefined') mySummonZone = saved.mySummonZone;
-                if (typeof myHand !== 'undefined') myHand = saved.myHand;
-                if (typeof gameTurnOrder !== 'undefined') gameTurnOrder = data.turnSequence || saved.gameTurnOrder || [];
-                if (typeof playerMarkerMap !== 'undefined') playerMarkerMap = saved.playerMarkerMap || {};
-                if (typeof marketCards !== 'undefined') marketCards = data.marketCards || saved.marketCards || [];
+        socket.once('reconnectSuccess', (data) => {
+            // 핵심 변수 복원
+            userNickname = saved.nickname;
+            currentRoomID = saved.roomCode;
+            if (typeof currentRound !== 'undefined') currentRound = saved.currentRound;
+            if (typeof currentPhase !== 'undefined') currentPhase = saved.currentPhase;
+            if (typeof myScore !== 'undefined') myScore = saved.myScore;
+            if (typeof myStones !== 'undefined') myStones = saved.myStones;
+            if (typeof mySummonZone !== 'undefined') mySummonZone = saved.mySummonZone;
+            if (typeof myHand !== 'undefined') myHand = saved.myHand;
+            if (typeof gameTurnOrder !== 'undefined') gameTurnOrder = data.turnSequence || saved.gameTurnOrder || [];
+            if (typeof playerMarkerMap !== 'undefined') playerMarkerMap = saved.playerMarkerMap || {};
+            if (typeof marketCards !== 'undefined') marketCards = data.marketCards || saved.marketCards || [];
 
-                // 게임 화면으로 전환
-                const landing = document.getElementById('landing-screen');
-                const game = document.getElementById('game-screen');
-                if (landing) { landing.classList.remove('active-view'); landing.classList.add('exit-view'); }
-                if (game) { game.classList.remove('exit-view'); game.classList.add('active-view'); }
-                if (typeof BGM !== 'undefined') BGM.play('game');
+            // 게임 화면으로 즉시 전환 (오버레이가 가리고 있으므로 애니메이션 없이 전환)
+            const landing = document.getElementById('landing-screen');
+            const game = document.getElementById('game-screen');
+            if (landing) { landing.classList.remove('active-view'); landing.classList.add('exit-view'); }
+            if (game) { game.classList.remove('exit-view'); game.classList.add('active-view'); }
+            if (typeof BGM !== 'undefined') BGM.play('game');
 
-                // UI 갱신
-                setTimeout(() => {
-                    if (typeof updateResourcesUI === 'function') updateResourcesUI();
-                    if (typeof updateHandUI === 'function') updateHandUI();
-                    if (typeof updateSummonZoneUI === 'function') updateSummonZoneUI();
-                    if (typeof renderRivalStatusUI === 'function') renderRivalStatusUI();
-                    if (typeof syncNewRoundMarket === 'function' && data.marketCards) syncNewRoundMarket(data.marketCards);
-                    // 라운드/페이즈 표시 갱신
-                    document.querySelectorAll('.info-item').forEach(el => {
-                        if (el.innerText.includes('ROUND')) el.innerHTML = `ROUND: <span style="color:#60a5fa;">${currentRound}/10</span>`;
-                        if (el.innerText.includes('PHASE')) el.innerHTML = `PHASE: <span style="color:#60a5fa;">${currentPhase} Phase</span>`;
-                    });
-                    const scoreEl = document.getElementById('my-score');
-                    if (scoreEl) scoreEl.innerText = myScore;
-                }, 200);
+            // UI 갱신 후 오버레이 제거
+            setTimeout(() => {
+                if (typeof updateResourcesUI === 'function') updateResourcesUI();
+                if (typeof updateHandUI === 'function') updateHandUI();
+                if (typeof updateSummonZoneUI === 'function') updateSummonZoneUI();
+                if (typeof renderRivalStatusUI === 'function') renderRivalStatusUI();
+                if (typeof syncNewRoundMarket === 'function' && data.marketCards) syncNewRoundMarket(data.marketCards);
+                document.querySelectorAll('.info-item').forEach(el => {
+                    if (el.innerText.includes('ROUND')) el.innerHTML = `ROUND: <span style="color:#60a5fa;">${currentRound}/10</span>`;
+                    if (el.innerText.includes('PHASE')) el.innerHTML = `PHASE: <span style="color:#60a5fa;">${currentPhase} Phase</span>`;
+                });
+                const scoreEl = document.getElementById('my-score');
+                if (scoreEl) scoreEl.innerText = myScore;
+                overlay.remove();
+            }, 250);
 
-                console.log(`✅ [재연결 성공] ${saved.nickname} → [${saved.roomCode}]`);
-            });
+            console.log(`✅ [재연결 성공] ${saved.nickname} → [${saved.roomCode}]`);
+        });
 
-            socket.once('reconnectFailed', () => {
-                localStorage.removeItem('voe_session');
-                console.log('❌ [재연결 실패] 세션 삭제');
-            });
+        socket.once('reconnectFailed', () => {
+            localStorage.removeItem('voe_session');
+            overlay.remove();
+            console.log('❌ [재연결 실패] 세션 삭제');
         });
     } catch(e) {}
 })();
