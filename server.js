@@ -1069,6 +1069,14 @@ io.on('connection', (socket) => {
                     console.log(`⏱️ [유예 만료] ${player.nickname} 제거 [${roomCode}]`);
                 }, 60000);
                 console.log(`⏸️ [게임 중 끊김] ${player.nickname} 60초 유예 [${roomCode}]`);
+
+                // 전원 접속 종료 시 → 유예 타이머 취소 후 즉시 방 폭파
+                const allGone = room.players.every(p => p._disconnected);
+                if (allGone) {
+                    room.players.forEach(p => { if (p._dcTimer) { clearTimeout(p._dcTimer); p._dcTimer = null; } });
+                    delete activeRooms[roomCode];
+                    console.log(`💥 [방 폭파] [${roomCode}] 전원 접속 종료 → 즉시 삭제.`);
+                }
             } else {
                 // 대기실 끊김 → 즉시 제거 (기존 동작)
                 const originalLength = room.players.length;
