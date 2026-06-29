@@ -607,9 +607,13 @@ io.on('connection', (socket) => {
     console.log(`🌐 [소켓 연결] 테이머 접속. ID: ${socket.id}`);
 
     // 👑 [방 개설]
-    socket.on('createRoom', async (nickname) => {
+    socket.on('createRoom', async (payload) => {
+        // payload는 { nickname, expansions } 또는 하위 호환을 위해 문자열(닉네임)도 허용
+        const nickname = (typeof payload === 'object' && payload !== null) ? payload.nickname : payload;
+        const expansions = (typeof payload === 'object' && payload !== null && payload.expansions) ? payload.expansions : {};
+
         const roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
-        socket.join(roomCode); 
+        socket.join(roomCode);
 
         let allCardsPool = [];
         let sharedMarketCards = [];
@@ -651,14 +655,18 @@ io.on('connection', (socket) => {
             marketCards: sharedMarketCards,
             currentTurnOwnerIndex: 0,
             turnSequence: [],
-            markersPlaced: 0 // 마커 카운터 연동
+            markersPlaced: 0,
+            expansions: { artifacts: !!(expansions.artifacts) }
         };
 
         socket.emit('roomCreated', {
             roomCode: roomCode,
             players: activeRooms[roomCode].players,
-            marketCards: sharedMarketCards
+            marketCards: sharedMarketCards,
+            expansions: activeRooms[roomCode].expansions
         });
+
+        console.log(`🏰 [방 생성] [${roomCode}] 모드: ${expansions.artifacts ? '⚗️ 아티팩츠 확장' : '📜 기본판'}`);
     });
 
     // 🤝 [방 입장]
@@ -678,11 +686,12 @@ io.on('connection', (socket) => {
 
         socket.join(targetRoom);
         activeRooms[targetRoom].players.push({ id: socket.id, nickname: nickname || "참가자 테이머" });
-        
+
         io.to(targetRoom).emit('roomUpdate', {
             roomID: targetRoom,
             players: activeRooms[targetRoom].players,
-            leaderID: activeRooms[targetRoom].leaderID
+            leaderID: activeRooms[targetRoom].leaderID,
+            expansions: activeRooms[targetRoom].expansions || {}
         });
     });
 
@@ -1224,7 +1233,8 @@ io.on('connection', (socket) => {
             io.to(roomCode).emit('roomUpdate', {
                 roomID: roomCode,
                 players: room.players,
-                leaderID: room.leaderID
+                leaderID: room.leaderID,
+                expansions: room.expansions || {}
             });
         }
         console.log(`🚪 [방 퇴장] ${socket.id} → [${roomCode}]`);
@@ -1308,7 +1318,7 @@ io.on('connection', (socket) => {
                     } else {
                         if (room.leaderID === socket.id) room.leaderID = room.players[0].id;
                         io.to(roomCode).emit('roomUpdate', {
-                            roomID: roomCode, players: room.players, leaderID: room.leaderID
+                            roomID: roomCode, players: room.players, leaderID: room.leaderID, expansions: room.expansions || {}
                         });
                     }
                 }

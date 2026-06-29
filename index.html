@@ -863,6 +863,36 @@
         <button class="howto-open-btn" onclick="openHowtoModal()">게임 방법 ✦</button>
     </div>
 
+    <!-- ⚗️ 방 생성 전 확장 선택 모달 -->
+    <div id="create-room-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.88); z-index:9999; justify-content:center; align-items:center; padding:20px;">
+        <div style="background:linear-gradient(160deg,#0e1a2e,#060d1a); border:1.5px solid rgba(229,184,66,0.35); border-radius:16px; padding:36px 32px; max-width:460px; width:100%; text-align:center; font-family:'Noto Sans KR',sans-serif;">
+            <h2 style="color:#e5b842; font-size:1.3rem; font-weight:800; letter-spacing:2px; margin-bottom:6px;">게임 모드 선택</h2>
+            <p style="color:#94a3b8; font-size:0.82rem; margin-bottom:28px;">플레이할 모드를 선택한 뒤 방을 생성하세요.</p>
+            <div style="display:flex; gap:16px; justify-content:center; margin-bottom:28px;">
+                <!-- 기본판 -->
+                <div id="mode-btn-base" onclick="selectGameMode('base')"
+                    style="flex:1; max-width:180px; border:2px solid rgba(229,184,66,0.3); border-radius:12px; padding:20px 12px; cursor:pointer; transition:all 0.18s; background:rgba(255,255,255,0.03);">
+                    <div style="font-size:2rem; margin-bottom:10px;">📜</div>
+                    <div style="color:#e2c97e; font-size:0.95rem; font-weight:700; margin-bottom:6px;">기본판</div>
+                    <div style="color:#64748b; font-size:0.72rem; line-height:1.5;">70장 카드<br>종료 점수 60점</div>
+                </div>
+                <!-- 아티팩츠 확장 -->
+                <div id="mode-btn-artifacts" onclick="selectGameMode('artifacts')"
+                    style="flex:1; max-width:180px; border:2px solid rgba(229,184,66,0.3); border-radius:12px; padding:20px 12px; cursor:pointer; transition:all 0.18s; background:rgba(255,255,255,0.03);">
+                    <div style="font-size:2rem; margin-bottom:10px;">⚗️</div>
+                    <div style="color:#e2c97e; font-size:0.95rem; font-weight:700; margin-bottom:6px;">아티팩츠 확장</div>
+                    <div style="color:#64748b; font-size:0.72rem; line-height:1.5;">98장 카드 + 유물 11종<br>종료 점수 80점</div>
+                </div>
+            </div>
+            <div style="display:flex; gap:12px; justify-content:center;">
+                <button onclick="closeCreateRoomModal()"
+                    style="padding:11px 26px; background:transparent; border:1.5px solid rgba(148,163,184,0.3); border-radius:8px; color:#94a3b8; font-size:0.88rem; font-family:'Noto Sans KR',sans-serif; cursor:pointer;">취소</button>
+                <button id="create-room-confirm-btn" onclick="confirmCreateRoom()" disabled
+                    style="padding:11px 26px; background:rgba(229,184,66,0.15); border:1.5px solid rgba(229,184,66,0.4); border-radius:8px; color:#e5b842; font-size:0.88rem; font-weight:700; font-family:'Noto Sans KR',sans-serif; cursor:not-allowed; opacity:0.45; transition:all 0.18s;">생성하기</button>
+            </div>
+        </div>
+    </div>
+
     <div class="screen" id="waiting-room">
         <button class="back-btn" onclick="goBackFromWaitingRoom()">← 이전</button>
         <div class="room-header">
@@ -890,14 +920,9 @@
             </div>
         </div>
     
-        <!-- 아티팩츠 확장 토글 (방장 전용) -->
-        <div id="expansion-toggle-area" style="display:none; position:relative; z-index:2; margin-top:10px;">
-            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-family:'Noto Sans KR',sans-serif; color:#c9a227; font-size:0.9rem; font-weight:700; letter-spacing:1px;">
-                <input type="checkbox" id="expansion-artifacts-toggle" onchange="toggleArtifactsExpansion(this.checked)"
-                    style="width:18px; height:18px; accent-color:#c9a227; cursor:pointer;">
-                ⚗️ 아티팩츠 확장 활성화
-            </label>
-            <div style="font-size:0.72rem; color:#7a8ba5; margin-top:4px; text-align:center;">확장 활성 시 28장 확장 카드 + 유물 타일 + 종료 점수 80점</div>
+        <!-- 게임 모드 표시 배지 (방 생성 시 결정됨, 읽기 전용) -->
+        <div id="game-mode-badge" style="display:none; position:relative; z-index:2; margin-top:10px; text-align:center; font-family:'Noto Sans KR',sans-serif;">
+            <span id="game-mode-badge-text" style="display:inline-block; padding:6px 18px; border-radius:20px; font-size:0.8rem; font-weight:700; letter-spacing:1px;"></span>
         </div>
 
         <button class="game-ready-btn" id="my-start-game-button" onclick="triggerGameStartByLeader()" style="display: none;">START GAME</button>
@@ -1347,14 +1372,51 @@
         let isRoomLeader = false; 
         let currentRoomID = "";   
 
-        // 👑 [액션 1] 방장이 [CREATE]를 눌렀을 때 (회원 닉네임 자동 연동 버전)
-        function createNewGameRoom() {
-            // 🚨 [핵심] 가입/로그인 시점에 저장해 둔 회원 닉네임 전역 변수(예: userNickname)를 그대로 사용합니다!
-            // 혹시 변수명이 다르면 기획자님이 설정해 두신 회원 닉네임 변수명으로 매칭해 주세요.
-            const finalNickname = (typeof userNickname !== 'undefined' && userNickname) ? userNickname : "방장 테이머";
+        // 👑 [액션 1] 방장이 [CREATE]를 눌렀을 때 → 모드 선택 모달 오픈
+        let selectedGameMode = null; // 'base' | 'artifacts'
 
-            logMessage(`🏰 [방 생성 요청] 회원 닉네임 [${finalNickname}] 정보로 방을 개설합니다...`);
-            socket.emit('createRoom', finalNickname);
+        function createNewGameRoom() {
+            selectedGameMode = null;
+            ['base','artifacts'].forEach(m => {
+                const btn = document.getElementById(`mode-btn-${m}`);
+                if (btn) { btn.style.borderColor = 'rgba(229,184,66,0.3)'; btn.style.background = 'rgba(255,255,255,0.03)'; }
+            });
+            const confirmBtn = document.getElementById('create-room-confirm-btn');
+            if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.opacity = '0.45'; confirmBtn.style.cursor = 'not-allowed'; }
+            const modal = document.getElementById('create-room-modal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function selectGameMode(mode) {
+            selectedGameMode = mode;
+            ['base','artifacts'].forEach(m => {
+                const btn = document.getElementById(`mode-btn-${m}`);
+                if (!btn) return;
+                if (m === mode) {
+                    btn.style.borderColor = '#e5b842';
+                    btn.style.background = 'rgba(229,184,66,0.12)';
+                } else {
+                    btn.style.borderColor = 'rgba(229,184,66,0.3)';
+                    btn.style.background = 'rgba(255,255,255,0.03)';
+                }
+            });
+            const confirmBtn = document.getElementById('create-room-confirm-btn');
+            if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.style.opacity = '1'; confirmBtn.style.cursor = 'pointer'; }
+        }
+
+        function closeCreateRoomModal() {
+            const modal = document.getElementById('create-room-modal');
+            if (modal) modal.style.display = 'none';
+            selectedGameMode = null;
+        }
+
+        function confirmCreateRoom() {
+            if (!selectedGameMode) return;
+            closeCreateRoomModal();
+            const finalNickname = (typeof userNickname !== 'undefined' && userNickname) ? userNickname : "방장 테이머";
+            const expansions = { artifacts: selectedGameMode === 'artifacts' };
+            logMessage(`🏰 [방 생성 요청] [${selectedGameMode === 'artifacts' ? '⚗️ 아티팩츠 확장' : '📜 기본판'}] 모드로 방을 개설합니다...`);
+            socket.emit('createRoom', { nickname: finalNickname, expansions });
         }
 
         // 🤝 [액션 2] 일반 참가자가 코드를 넣고 [JOIN]을 눌렀을 때 (회원 닉네임 자동 연동 버전)
@@ -1374,14 +1436,27 @@
             socket.emit('joinRoom', { roomCode: roomCode, nickname: finalNickname });
         }
 
-        // ⚗️ 확장 토글
-        function toggleArtifactsExpansion(enabled) {
-            socket.emit('setExpansion', { roomID: currentRoomID, artifacts: enabled });
+        // ⚗️ 게임 모드 배지 업데이트 (대기실 표시용)
+        function updateGameModeBadge(artifactsEnabled) {
+            const badge = document.getElementById('game-mode-badge');
+            const text = document.getElementById('game-mode-badge-text');
+            if (!badge || !text) return;
+            badge.style.display = 'block';
+            if (artifactsEnabled) {
+                text.innerText = '⚗️ 아티팩츠 확장';
+                text.style.background = 'rgba(229,184,66,0.15)';
+                text.style.border = '1px solid rgba(229,184,66,0.5)';
+                text.style.color = '#e5b842';
+            } else {
+                text.innerText = '📜 기본판';
+                text.style.background = 'rgba(148,163,184,0.1)';
+                text.style.border = '1px solid rgba(148,163,184,0.3)';
+                text.style.color = '#94a3b8';
+            }
         }
+
         socket.on('expansionUpdated', (data) => {
-            const toggle = document.getElementById('expansion-artifacts-toggle');
-            if (toggle) toggle.checked = !!data.artifacts;
-            logMessage(`⚗️ [확장 설정] 아티팩츠 확장: ${data.artifacts ? '✅ 활성' : '❌ 비활성'}`);
+            updateGameModeBadge(!!data.artifacts);
         });
 
         // 🚀 [액션 3] 2~4명이 모인 후 방장이 최종 시작을 누를 때 실행되는 함수
@@ -1397,18 +1472,17 @@
         socket.on('roomCreated', (data) => {
             currentRoomID = data.roomCode;
             isRoomLeader = true;
-    
+
             logMessage(`🏰 [방 개설 성공] 방 코드 발급 완료: ${data.roomCode}`);
 
-            // 🚨 [UI 연동] 금빛 전광판 태그를 직접 찔러 서버가 준 진짜 랜덤 코드를 꽂아줍니다!
             const codeDisplay = document.getElementById('display-room-code');
-            if (codeDisplay) {
-                codeDisplay.innerText = data.roomCode;
-            }
-    
-            // 내 슬롯 닉네임 업데이트
+            if (codeDisplay) codeDisplay.innerText = data.roomCode;
+
             const player1 = document.getElementById('room-screen')?.querySelector('#player1-name') || document.getElementById('player1-name');
             if (player1) player1.innerText = `${userNickname} (나)`;
+
+            // 게임 모드 배지 표시 (방 생성 시 결정된 모드)
+            updateGameModeBadge(!!(data.expansions && data.expansions.artifacts));
 
             if (typeof changeScreen === 'function') changeScreen('lobby-screen', 'waiting-room');
         });
@@ -1469,15 +1543,17 @@
 
             // 3. 👑 방장이 되었고 2명 이상일 때 금빛 오라 스타트 버튼 노출!
             const startBtn = document.getElementById('my-start-game-button');
-            const expansionArea = document.getElementById('expansion-toggle-area');
             if (data.leaderID === socket.id && data.players.length >= 2) {
                 isRoomLeader = true;
                 if (startBtn) startBtn.style.display = 'block';
-                if (expansionArea) expansionArea.style.display = 'block';
             } else {
                 isRoomLeader = (data.leaderID === socket.id);
                 if (startBtn) startBtn.style.display = 'none';
-                if (expansionArea && !isRoomLeader) expansionArea.style.display = 'none';
+            }
+
+            // 게임 모드 배지 표시 (참가자 포함 모두에게)
+            if (data.expansions !== undefined) {
+                updateGameModeBadge(!!(data.expansions && data.expansions.artifacts));
             }
 
             if (typeof updatePlayersUI === 'function') updatePlayersUI();
