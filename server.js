@@ -66,9 +66,12 @@ function startPhaseTimer(roomID, phase) {
     }, durationMs);
 }
 
-// 🐍 [스네이크 드래프트] 3인 기준 6픽 순서: P1→P2→P3→P3→P2→P1
-// turnSequence 인덱스 기준이므로 선플레이어 순서를 그대로 따른다.
-const SNAKE_DRAFT_SEQUENCE = [0, 1, 2, 2, 1, 0];
+// 🐍 [스네이크 드래프트] 인원수에 따라 동적으로 스네이크 순서 생성 (2~4인 지원)
+// 예: 2인=[0,1,1,0], 3인=[0,1,2,2,1,0], 4인=[0,1,2,3,3,2,1,0]
+function generateSnakeDraftSequence(numPlayers) {
+    const forward = Array.from({ length: numPlayers }, (_, i) => i);
+    return [...forward, ...forward.slice().reverse()];
+}
 
 // ⏰ [강제 마감 - 드래프트 인당] 현재 픽이 끝나면(찜 완료 or 60초 만료 or 완료 버튼) 호출된다.
 // 6픽을 다 소진하면 액션 단계로 전환, 아니면 다음 픽 플레이어에게 새 60초 타이머를 시작한다.
@@ -79,7 +82,8 @@ function forceEndCurrentPlayerDraftTurn(roomID) {
     if (typeof room.currentDraftStep === 'undefined') room.currentDraftStep = 0;
     room.currentDraftStep++;
 
-    if (room.currentDraftStep >= SNAKE_DRAFT_SEQUENCE.length) {
+    const snakeSeq = room.snakeDraftSequence || generateSnakeDraftSequence(room.turnSequence.length);
+    if (room.currentDraftStep >= snakeSeq.length) {
         room.currentTurnOwnerIndex = 0;
         const firstActionPlayer = room.turnSequence[0];
         io.to(roomID).emit('draftPhaseEnded', {
@@ -90,14 +94,14 @@ function forceEndCurrentPlayerDraftTurn(roomID) {
         });
         startPhaseTimer(roomID, 'ACTION');
     } else {
-        const nextOwnerIdx = SNAKE_DRAFT_SEQUENCE[room.currentDraftStep];
+        const nextOwnerIdx = snakeSeq[room.currentDraftStep];
         room.currentTurnOwnerIndex = nextOwnerIdx;
         const nextPlayer = room.turnSequence[nextOwnerIdx];
 
         io.to(roomID).emit('draftTurnStart', {
             currentTurnOwnerID: nextPlayer.id,
             currentTurnOwnerNickname: nextPlayer.nickname,
-            logMessage: `🎲 [드래프트 ${room.currentDraftStep + 1}/6] [ ${nextPlayer.nickname} ] 님 차례입니다. (60초)`
+            logMessage: `🎲 [드래프트 ${room.currentDraftStep + 1}/${snakeSeq.length}] [ ${nextPlayer.nickname} ] 님 차례입니다. (60초)`
         });
         startPhaseTimer(roomID, 'DRAFT');
     }
@@ -199,8 +203,11 @@ function advanceToNextRound(roomID) {
 
     room.currentTurnOwnerIndex = 0;
 
+    const numPlayers = room.turnSequence.length;
+    const marketSize = numPlayers * 2;
+
     let nextMarketCards = [];
-    if (room.gameMainDeck.length < 6) {
+    if (room.gameMainDeck.length < marketSize) {
         if (room.discardPile && room.discardPile.length > 0) {
             room.gameMainDeck = [...room.gameMainDeck, ...room.discardPile];
             room.discardPile = [];
@@ -208,7 +215,7 @@ function advanceToNextRound(roomID) {
         }
     }
 
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < marketSize; i++) {
         if (room.gameMainDeck.length > 0) {
             nextMarketCards.push(room.gameMainDeck.shift());
         }
@@ -228,7 +235,7 @@ function advanceToNextRound(roomID) {
     io.to(roomID).emit('draftTurnStart', {
         currentTurnOwnerID: firstDraftPlayer.id,
         currentTurnOwnerNickname: firstDraftPlayer.nickname,
-        logMessage: `🎲 [드래프트 1/6] 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
+        logMessage: `🎲 [드래프트 1/${marketSize}] 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
     });
 
     startPhaseTimer(roomID, 'DRAFT');
@@ -535,8 +542,8 @@ io.on('connection', (socket) => {
             return;
         }
 
-        if (activeRooms[targetRoom].players.length >= 3) {
-            socket.emit('joinError', "🚨 정원 초과 방입니다!");
+        if (activeRooms[targetRoom].players.length >= 4) {
+            socket.emit('joinError', "🚨 정원 초과 방입니다! (최대 4명)");
             return;
         }
 
@@ -552,7 +559,7 @@ io.on('connection', (socket) => {
 
     // 🌟🌙☀️ [선플레이어 결정 - 마커 선택制] 마커 3종(별/달/해) 중 하나를 10초 안에 고르고,
     // 고른 마커에 랜덤 값을 부여해 정렬한 결과로 선플레이어 순서를 정한다.
-    const TURN_ORDER_MARKERS = ['star', 'moon', 'sun'];
+    const TURN_ORDER_MARKERS = ['star', 'moon', 'sun', 'cloud'];
 
     function finalizeMarkerPhase(roomID) {
         const room = activeRooms[roomID];
@@ -586,12 +593,11 @@ io.on('connection', (socket) => {
 
         ranked.sort((a, b) => b.randomValue - a.randomValue);
 
-        const startScores = [0, 1, 2];
         const finalTurnOrder = ranked.map((res, index) => ({
             id: res.id,
             nickname: res.nickname,
             marker: res.marker,
-            startScore: startScores[index],
+            startScore: index,
             turnIndex: index
         }));
 
@@ -599,6 +605,15 @@ io.on('connection', (socket) => {
         room.currentTurnOwnerIndex = 0;
         room.markerPicks = {};
         room.currentDraftStep = 0;
+        room.snakeDraftSequence = generateSnakeDraftSequence(room.players.length);
+
+        // Deal correct number of market cards for this player count
+        const initMarketSize = room.players.length * 2;
+        room.gameMainDeck = [...room.marketCards, ...room.gameMainDeck];
+        room.marketCards = [];
+        for (let i = 0; i < initMarketSize; i++) {
+            if (room.gameMainDeck.length > 0) room.marketCards.push(room.gameMainDeck.shift());
+        }
 
         io.to(roomID).emit('gameStartSignal', {
             finalPlayers: room.players,
@@ -610,7 +625,7 @@ io.on('connection', (socket) => {
         io.to(roomID).emit('draftTurnStart', {
             currentTurnOwnerID: firstDraftPlayer.id,
             currentTurnOwnerNickname: firstDraftPlayer.nickname,
-            logMessage: `🎲 [드래프트 1/6] 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
+            logMessage: `🎲 [드래프트 1/${room.snakeDraftSequence.length}] 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
         });
 
         startPhaseTimer(roomID, 'DRAFT');
@@ -621,6 +636,10 @@ io.on('connection', (socket) => {
         const { roomID } = data;
         const room = activeRooms[roomID];
         if (!room || room.markerPhaseActive) return;
+        if (room.players.length < 2) {
+            socket.emit('joinError', "🚨 게임을 시작하려면 최소 2명이 필요합니다!");
+            return;
+        }
 
         room.markerPhaseActive = true;
         room.markerPicks = {};

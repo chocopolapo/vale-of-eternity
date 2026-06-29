@@ -328,9 +328,9 @@
         .marker-select-title { font-size: 2.2rem; font-weight: 700; letter-spacing: 3px; color: #e5b842; text-shadow: 0 0 20px rgba(229,184,66,0.5); margin-bottom: 10px; }
         .marker-select-desc { font-size: 1rem; color: #cbd5e1; margin-bottom: 18px; }
         .marker-select-timer { font-size: 3rem; font-weight: 800; color: #fff; text-shadow: 0 0 20px rgba(255,255,255,0.5); margin-bottom: 30px; }
-        .marker-choice-row { display: flex; gap: 36px; justify-content: center; }
+        .marker-choice-row { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
         .marker-choice-btn { background: transparent; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 0; transition: transform 0.2s ease; }
-        .marker-choice-btn img { width: 110px; height: 110px; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.5)); transition: filter 0.25s ease, opacity 0.25s ease, transform 0.25s ease; }
+        .marker-choice-btn img { width: 96px; height: 96px; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.5)); transition: filter 0.25s ease, opacity 0.25s ease, transform 0.25s ease; }
         .marker-choice-btn:hover img { transform: scale(1.06); filter: drop-shadow(0 4px 20px rgba(229,184,66,0.6)); }
         .marker-choice-btn:active img { transform: scale(0.95); }
         .marker-choice-btn.taken { cursor: not-allowed; }
@@ -339,8 +339,8 @@
         .marker-choice-tag { font-size: 0.78rem; font-weight: 700; color: #ffe9ad; min-height: 1.2em; }
         .marker-select-status { margin-top: 22px; font-size: 0.9rem; color: #cbd5e1; min-height: 1.4em; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .slots-container { display: flex; gap: 50px; width: 1020px; max-width: 95%; justify-content: center; margin-top: 40px; }
-        .player-slot { flex: 1; max-width: 300px; height: 280px; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); position: relative; }
+        .slots-container { display: flex; gap: 30px; width: 1280px; max-width: 95%; justify-content: center; margin-top: 40px; }
+        .player-slot { flex: 1; max-width: 280px; height: 280px; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); position: relative; }
         .player-slot.occupied {
             background-image: url('landing-assets/parchment.png'); background-size: 100% 100%; background-repeat: no-repeat;
             border: none; box-shadow: 0 15px 30px rgba(0,0,0,0.45);
@@ -867,6 +867,10 @@
                 <div class="avatar-deco">+</div>
                 <div class="slot-status waiting" id="player3-name">친구 초대하기</div>
             </div>
+            <div class="player-slot empty" onclick="copyRoomCode()">
+                <div class="avatar-deco">+</div>
+                <div class="slot-status waiting" id="player4-name">친구 초대하기</div>
+            </div>
         </div>
     
         <button class="game-ready-btn" id="my-start-game-button" onclick="triggerGameStartByLeader()" style="display: none;">START GAME</button>
@@ -901,6 +905,10 @@
                 <button class="marker-choice-btn" id="marker-btn-sun" onclick="pickTurnOrderMarker('sun')">
                     <img src="landing-assets/sun.png" alt="해">
                     <span class="marker-choice-tag" id="marker-tag-sun"></span>
+                </button>
+                <button class="marker-choice-btn" id="marker-btn-cloud" onclick="pickTurnOrderMarker('cloud')">
+                    <img src="landing-assets/cloud.png" alt="구름">
+                    <span class="marker-choice-tag" id="marker-tag-cloud"></span>
                 </button>
             </div>
             <p class="marker-select-status" id="marker-select-status"></p>
@@ -1319,7 +1327,7 @@
             socket.emit('joinRoom', { roomCode: roomCode, nickname: finalNickname });
         }
 
-        // 🚀 [액션 3] 3명이 다 모인 후 방장이 최종 시작을 누를 때 실행되는 함수
+        // 🚀 [액션 3] 2~4명이 모인 후 방장이 최종 시작을 누를 때 실행되는 함수
         function triggerGameStartByLeader() {
             if (!isRoomLeader) {
                 alert("👑 게임 시작은 방장만 선언할 수 있습니다!");
@@ -1359,7 +1367,7 @@
             currentRoomID = data.roomID;
             players = data.players.map(p => p.nickname);
             
-            logMessage(`👥 [대기실 갱신] 방 코드 [${data.roomID}] 현재 인원: ${players.length}/3명`);
+            logMessage(`👥 [대기실 갱신] 방 코드 [${data.roomID}] 현재 인원: ${players.length}/4명`);
 
             // 1. 상단 룸 코드 동기화
             const codeDisplay = document.getElementById('display-room-code');
@@ -1367,8 +1375,8 @@
                 codeDisplay.innerText = data.roomID;
             }
 
-            // 2. 🚨 [정밀 추적] 들어온 순서대로 대기실 슬롯 1, 2, 3번의 DOM을 직접 변경합니다.
-            for (let i = 1; i <= 3; i++) {
+            // 2. 🚨 [정밀 추적] 들어온 순서대로 대기실 슬롯 1, 2, 3, 4번의 DOM을 직접 변경합니다.
+            for (let i = 1; i <= 4; i++) {
                 const slotName = document.getElementById(`player${i}-name`);
                 // 태그 계층에 상관없이 가장 가까운 부모 player-slot 카드를 역추적해 찾아옵니다.
                 const slotCard = slotName ? slotName.closest('.player-slot') : null;
@@ -1402,12 +1410,13 @@
                 }
             }
 
-            // 3. 👑 방장이 되었고 3명이 가득 찼을 때만 금빛 오라 스타트 버튼 노출!
+            // 3. 👑 방장이 되었고 2명 이상일 때 금빛 오라 스타트 버튼 노출!
             const startBtn = document.getElementById('my-start-game-button');
-            if (data.leaderID === socket.id && data.players.length === 3) {
+            if (data.leaderID === socket.id && data.players.length >= 2) {
                 isRoomLeader = true;
-                if (startBtn) startBtn.style.display = 'block'; 
+                if (startBtn) startBtn.style.display = 'block';
             } else {
+                isRoomLeader = (data.leaderID === socket.id);
                 if (startBtn) startBtn.style.display = 'none';
             }
 
@@ -1420,8 +1429,8 @@
         });
 
         // 🌟🌙☀️ [선플레이어 결정 - 마커 선택] 관련 상태
-        const TURN_ORDER_MARKER_IMG = { star: 'landing-assets/star.png', moon: 'landing-assets/moon.png', sun: 'landing-assets/sun.png' };
-        const TURN_ORDER_MARKER_LABEL = { star: '별', moon: '달', sun: '해' };
+        const TURN_ORDER_MARKER_IMG = { star: 'landing-assets/star.png', moon: 'landing-assets/moon.png', sun: 'landing-assets/sun.png', cloud: 'landing-assets/cloud.png' };
+        const TURN_ORDER_MARKER_LABEL = { star: '별', moon: '달', sun: '해', cloud: '구름' };
         let myMarkerPick = null;
         let markerCountdownInterval = null;
 
@@ -1433,7 +1442,7 @@
             const waitingRoomEl = document.getElementById('waiting-room');
             if (waitingRoomEl) waitingRoomEl.style.display = 'none';
 
-            ['star', 'moon', 'sun'].forEach(m => {
+            ['star', 'moon', 'sun', 'cloud'].forEach(m => {
                 const btn = document.getElementById(`marker-btn-${m}`);
                 const tag = document.getElementById(`marker-tag-${m}`);
                 if (btn) btn.classList.remove('taken', 'mine');
