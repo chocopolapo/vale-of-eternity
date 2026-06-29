@@ -52,6 +52,8 @@ function startPhaseTimer(roomID, phase) {
     }
     room.currentServerPhase = phase;
     const durationMs = PHASE_DURATIONS[phase];
+    room.phaseTimerStartedAt = Date.now();
+    room.phaseTimerDurationMs = durationMs;
 
     io.to(roomID).emit('phaseTimerStart', { phase, durationMs });
 
@@ -1009,12 +1011,17 @@ io.on('connection', (socket) => {
         player._disconnected = false;
         if (room.leaderID === oldId) room.leaderID = socket.id;
         socket.join(code);
+        const timerRemainingMs = (room.phaseTimerStartedAt && room.phaseTimerDurationMs)
+            ? Math.max(0, room.phaseTimerDurationMs - (Date.now() - room.phaseTimerStartedAt))
+            : 0;
         socket.emit('reconnectSuccess', {
             roomCode: code,
             players: room.players,
             marketCards: room.marketCards,
             currentRound: room.currentRound,
             turnSequence: room.turnSequence,
+            currentPhase: room.currentServerPhase || 'DRAFT',
+            timerRemainingMs,
         });
         console.log(`🔄 [재연결] ${nickname} → [${code}]`);
     });
