@@ -447,14 +447,16 @@
         /* 모달 컨테이너 */
         .howto-container {
             position: relative;
-            width: 420px; max-width: 92vw;
+            width: 520px; max-width: 96vw;
+            max-height: 92vh; overflow-y: auto;
             background-image: url('landing-assets/parchment.png');
             background-size: 100% 100%; background-repeat: no-repeat;
-            padding: 52px 44px 40px;
+            padding: 52px 48px 42px;
             box-sizing: border-box;
             box-shadow: 0 30px 70px rgba(0,0,0,0.65);
             animation: fadeInUp 0.35s ease-out;
         }
+        .howto-container::-webkit-scrollbar { display: none; }
 
         /* 닫기 버튼 */
         .howto-close-btn {
@@ -481,14 +483,14 @@
             min-width: 100%; box-sizing: border-box;
             display: flex; flex-direction: column;
             align-items: center; text-align: center;
-            gap: 14px;
+            gap: 10px;
             padding: 0 4px;
         }
         .howto-slide-art {
             width: 100%; display: flex; align-items: center; justify-content: center;
-            height: 100px; gap: 10px;
+            height: 80px; gap: 10px;
         }
-        .howto-slide-art img { max-height: 90px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
+        .howto-slide-art img { max-height: 72px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
         .howto-slide-title {
             font-family: 'Cinzel', 'Noto Sans KR', sans-serif;
             font-size: 1.05rem; font-weight: 700; letter-spacing: 1.5px;
@@ -503,14 +505,14 @@
         }
         .howto-slide-desc {
             font-family: 'Noto Sans KR', sans-serif;
-            font-size: 0.82rem; color: #5c4322; line-height: 1.75;
-            word-break: keep-all;
+            font-size: 0.83rem; color: #5c4322; line-height: 1.7;
+            word-break: keep-all; text-align: left;
         }
 
         /* 내비게이션 */
         .howto-nav {
             display: flex; align-items: center; justify-content: space-between;
-            margin-top: 20px; gap: 8px;
+            margin-top: 14px; gap: 8px;
         }
         .howto-nav-btn {
             background: none; border: 1px solid rgba(120,90,50,0.35);
@@ -937,7 +939,7 @@
                     <!-- 슬라이드 1: 게임 목표 -->
                     <div class="howto-slide">
                         <div class="howto-slide-art">
-                            <img src="landing-assets/orbit.png" alt="게임 목표" style="max-height:95px; animation:rotateClockwise 20s linear infinite;">
+                            <img src="landing-assets/orbit.png" alt="게임 목표" style="max-height:72px; animation:rotateClockwise 20s linear infinite;">
                         </div>
                         <div class="howto-slide-step">Step 1</div>
                         <div class="howto-slide-title">게임 목표</div>
@@ -947,9 +949,9 @@
                     <!-- 슬라이드 2: 차례 정하기 -->
                     <div class="howto-slide">
                         <div class="howto-slide-art">
-                            <img src="landing-assets/star.png" alt="별 마커" style="max-height:62px;">
-                            <img src="landing-assets/moon.png" alt="달 마커" style="max-height:62px;">
-                            <img src="landing-assets/sun.png"  alt="해 마커" style="max-height:62px;">
+                            <img src="landing-assets/star.png" alt="별 마커" style="max-height:56px;">
+                            <img src="landing-assets/moon.png" alt="달 마커" style="max-height:56px;">
+                            <img src="landing-assets/sun.png"  alt="해 마커" style="max-height:56px;">
                         </div>
                         <div class="howto-slide-step">Step 2</div>
                         <div class="howto-slide-title">차례 정하기</div>
@@ -958,20 +960,20 @@
 
                     <!-- 슬라이드 3: 한 라운드의 흐름 -->
                     <div class="howto-slide">
-                        <div class="howto-slide-art" style="gap:18px;">
-                            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
-                                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ff6b35,#c0392b);box-shadow:0 3px 10px rgba(255,80,0,0.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🔍</div>
-                                <span style="font-size:0.6rem;color:#7a5c2e;font-weight:700;letter-spacing:1px;">DRAFT</span>
+                        <div class="howto-slide-art" style="gap:16px;">
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#ff6b35,#c0392b);box-shadow:0 3px 10px rgba(255,80,0,0.4);display:flex;align-items:center;justify-content:center;font-size:1rem;">🔍</div>
+                                <span style="font-size:0.58rem;color:#7a5c2e;font-weight:700;letter-spacing:1px;">DRAFT</span>
                             </div>
-                            <div style="color:#c8860a;font-size:1rem;">→</div>
-                            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
-                                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#1e40af);box-shadow:0 3px 10px rgba(59,130,246,0.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">⚔️</div>
-                                <span style="font-size:0.6rem;color:#7a5c2e;font-weight:700;letter-spacing:1px;">ACTION</span>
+                            <div style="color:#c8860a;font-size:0.9rem;">→</div>
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#1e40af);box-shadow:0 3px 10px rgba(59,130,246,0.4);display:flex;align-items:center;justify-content:center;font-size:1rem;">⚔️</div>
+                                <span style="font-size:0.58rem;color:#7a5c2e;font-weight:700;letter-spacing:1px;">ACTION</span>
                             </div>
-                            <div style="color:#c8860a;font-size:1rem;">→</div>
-                            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
-                                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#10b981,#065f46);box-shadow:0 3px 10px rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">♻️</div>
-                                <span style="font-size:0.6rem;color:#7a5c2e;font-weight:700;letter-spacing:1px;">REFRESH</span>
+                            <div style="color:#c8860a;font-size:0.9rem;">→</div>
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#10b981,#065f46);box-shadow:0 3px 10px rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;font-size:1rem;">♻️</div>
+                                <span style="font-size:0.58rem;color:#7a5c2e;font-weight:700;letter-spacing:1px;">REFRESH</span>
                             </div>
                         </div>
                         <div class="howto-slide-step">Step 3</div>
@@ -981,13 +983,13 @@
 
                     <!-- 슬라이드 4: 정령 모으기와 마법석 -->
                     <div class="howto-slide">
-                        <div class="howto-slide-art" style="gap:16px; flex-direction:column;">
-                            <div style="display:flex;gap:14px;align-items:center;justify-content:center;">
-                                <div style="width:32px;height:32px;border-radius:50%;background:radial-gradient(circle,#ff6b35,#c0392b);box-shadow:0 3px 12px rgba(255,80,0,0.5);"></div>
-                                <div style="width:32px;height:32px;border-radius:50%;background:radial-gradient(circle,#60a5fa,#1e40af);box-shadow:0 3px 12px rgba(59,130,246,0.5);"></div>
-                                <div style="width:32px;height:32px;border-radius:50%;background:radial-gradient(circle,#c084fc,#7c3aed);box-shadow:0 3px 12px rgba(192,132,252,0.5);"></div>
+                        <div class="howto-slide-art" style="gap:10px; flex-direction:column;">
+                            <div style="display:flex;gap:12px;align-items:center;justify-content:center;">
+                                <div style="width:26px;height:26px;border-radius:50%;background:radial-gradient(circle,#ff6b35,#c0392b);box-shadow:0 3px 10px rgba(255,80,0,0.5);"></div>
+                                <div style="width:26px;height:26px;border-radius:50%;background:radial-gradient(circle,#60a5fa,#1e40af);box-shadow:0 3px 10px rgba(59,130,246,0.5);"></div>
+                                <div style="width:26px;height:26px;border-radius:50%;background:radial-gradient(circle,#c084fc,#7c3aed);box-shadow:0 3px 10px rgba(192,132,252,0.5);"></div>
                             </div>
-                            <img src="landing-assets/seal.png" alt="소환" style="max-height:46px; opacity:0.85;">
+                            <img src="landing-assets/seal.png" alt="소환" style="max-height:30px; opacity:0.85;">
                         </div>
                         <div class="howto-slide-step">Step 4</div>
                         <div class="howto-slide-title">정령 모으기와 마법석</div>
@@ -997,7 +999,7 @@
                     <!-- 슬라이드 5: 게임 종료와 승리 -->
                     <div class="howto-slide">
                         <div class="howto-slide-art" style="gap:12px;">
-                            <img src="landing-assets/star.png" alt="승리" style="max-height:70px; filter:drop-shadow(0 0 14px rgba(229,184,66,0.7)); animation:glowPulse 2s ease-in-out infinite;">
+                            <img src="landing-assets/star.png" alt="승리" style="max-height:60px; filter:drop-shadow(0 0 14px rgba(229,184,66,0.7)); animation:glowPulse 2s ease-in-out infinite;">
                             <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
                                 <span style="font-family:'Cinzel',sans-serif;font-size:1.8rem;font-weight:900;color:#d4a327;text-shadow:0 0 12px rgba(212,163,39,0.5);">60</span>
                                 <span style="font-size:0.62rem;color:#a07838;font-weight:700;letter-spacing:1px;">POINTS</span>
