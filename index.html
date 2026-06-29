@@ -339,6 +339,23 @@
         .marker-choice-tag { font-size: 0.78rem; font-weight: 700; color: #ffe9ad; min-height: 1.2em; }
         .marker-select-status { margin-top: 22px; font-size: 0.9rem; color: #cbd5e1; min-height: 1.4em; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        /* ⚗️ 유물 타일 카드 스타일 */
+        .artifact-tile { background: linear-gradient(150deg, #0e1525 0%, #070912 100%); border: 1.5px solid rgba(229,184,66,0.3); border-radius:8px; padding:10px 12px; min-width:110px; max-width:130px; cursor:pointer; transition:all 0.2s; text-align:center; font-family:'Noto Sans KR',sans-serif; position:relative; }
+        .artifact-tile:hover:not(.artifact-taken):not(.artifact-restricted) { border-color:#e5b842; transform:translateY(-3px); box-shadow:0 6px 20px rgba(229,184,66,0.3); }
+        .artifact-tile.artifact-taken { opacity:0.4; cursor:not-allowed; border-color:rgba(229,184,66,0.1); }
+        .artifact-tile.artifact-restricted { opacity:0.5; cursor:not-allowed; border-color:rgba(255,100,100,0.3); }
+        .artifact-tile.artifact-mine { border-color:#22c55e; box-shadow:0 0 15px rgba(34,197,94,0.4); }
+        .artifact-emoji { font-size:1.6rem; display:block; margin-bottom:4px; }
+        .artifact-name { font-size:0.72rem; font-weight:700; color:#c9a227; margin-bottom:4px; }
+        .artifact-type-badge { font-size:0.62rem; padding:2px 6px; border-radius:10px; display:inline-block; }
+        .artifact-type-action { background:rgba(96,165,250,0.15); color:#60a5fa; }
+        .artifact-type-instant { background:rgba(251,191,36,0.15); color:#fbbf24; }
+        .artifact-type-continuous { background:rgba(167,243,208,0.15); color:#6ee7b7; }
+
+        /* 유물 공급 목록 (인게임) */
+        .artifact-supply-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; background:rgba(201,162,39,0.1); border:1px solid rgba(201,162,39,0.2); font-size:0.68rem; color:#c9a227; font-family:'Noto Sans KR',sans-serif; cursor:default; }
+        .artifact-supply-chip.claimed { background:rgba(34,197,94,0.1); border-color:rgba(34,197,94,0.3); color:#86efac; }
+
         .slots-container { display: flex; gap: 30px; width: 1280px; max-width: 95%; justify-content: center; margin-top: 40px; }
         .player-slot { flex: 1; max-width: 280px; height: 280px; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); position: relative; }
         .player-slot.occupied {
@@ -873,6 +890,16 @@
             </div>
         </div>
     
+        <!-- 아티팩츠 확장 토글 (방장 전용) -->
+        <div id="expansion-toggle-area" style="display:none; position:relative; z-index:2; margin-top:10px;">
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-family:'Noto Sans KR',sans-serif; color:#c9a227; font-size:0.9rem; font-weight:700; letter-spacing:1px;">
+                <input type="checkbox" id="expansion-artifacts-toggle" onchange="toggleArtifactsExpansion(this.checked)"
+                    style="width:18px; height:18px; accent-color:#c9a227; cursor:pointer;">
+                ⚗️ 아티팩츠 확장 활성화
+            </label>
+            <div style="font-size:0.72rem; color:#7a8ba5; margin-top:4px; text-align:center;">확장 활성 시 28장 확장 카드 + 유물 타일 + 종료 점수 80점</div>
+        </div>
+
         <button class="game-ready-btn" id="my-start-game-button" onclick="triggerGameStartByLeader()" style="display: none;">START GAME</button>
     </div>
 
@@ -912,6 +939,16 @@
                 </button>
             </div>
             <p class="marker-select-status" id="marker-select-status"></p>
+        </div>
+    </div>
+
+    <!-- ⚗️ 유물 선택 오버레이 -->
+    <div id="artifact-select-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:9997; align-items:center; justify-content:center; flex-direction:column; overflow:hidden; background:rgba(0,0,0,0.82); backdrop-filter:blur(4px);">
+        <div style="position:relative; z-index:2; text-align:center; font-family:'Noto Sans KR',sans-serif; max-width:700px; width:95%;">
+            <h2 style="font-size:1.8rem; font-weight:700; letter-spacing:3px; color:#e5b842; text-shadow:0 0 20px rgba(229,184,66,0.5); margin-bottom:6px;">⚗️ 유물 선택</h2>
+            <p id="artifact-select-desc" style="font-size:0.9rem; color:#cbd5e1; margin-bottom:20px;"></p>
+            <div id="artifact-choice-row" style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-bottom:18px;"></div>
+            <p id="artifact-select-status" style="font-size:0.85rem; color:#94a3b8; min-height:1.2em;"></p>
         </div>
     </div>
 
@@ -1059,6 +1096,16 @@
                 <div class="info-item">PHASE: <span id="phase-value" style="color: #60a5fa;">Draft Phase</span></div>
                 <div class="info-item" id="phase-timer-item" style="display:none;">⏱ <span id="phase-timer-value">--</span></div>
                 <div class="info-item">MY SCORE: <span id="my-score">0</span></div>
+                <div class="info-item" id="my-artifact-item" style="display:none;">⚗️ <span id="my-artifact-name" style="color:#c9a227;">-</span>
+                    <button id="use-artifact-btn" onclick="openUseArtifactUI()" style="display:none; margin-left:6px; padding:2px 8px; background:rgba(201,162,39,0.15); border:1px solid rgba(201,162,39,0.4); color:#c9a227; border-radius:4px; cursor:pointer; font-size:0.7rem;">사용</button>
+                </div>
+                <div class="info-item" id="territory-token-item" style="display:none;">🏰 영역+<span id="territory-token-value">0</span></div>
+            </div>
+
+            <!-- ⚗️ 유물 공급 존 (아티팩츠 확장 활성 시에만 표시) -->
+            <div id="artifact-supply-zone" style="display:none; padding:6px 10px; background:rgba(201,162,39,0.06); border:1px solid rgba(201,162,39,0.2); border-radius:6px; margin-bottom:6px;">
+                <div style="font-size:0.65rem; color:#7a8ba5; letter-spacing:1px; margin-bottom:5px;">⚗️ ARTIFACT SUPPLY</div>
+                <div id="artifact-supply-list" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
             </div>
 
             <div class="center-board">
@@ -1327,6 +1374,16 @@
             socket.emit('joinRoom', { roomCode: roomCode, nickname: finalNickname });
         }
 
+        // ⚗️ 확장 토글
+        function toggleArtifactsExpansion(enabled) {
+            socket.emit('setExpansion', { roomID: currentRoomID, artifacts: enabled });
+        }
+        socket.on('expansionUpdated', (data) => {
+            const toggle = document.getElementById('expansion-artifacts-toggle');
+            if (toggle) toggle.checked = !!data.artifacts;
+            logMessage(`⚗️ [확장 설정] 아티팩츠 확장: ${data.artifacts ? '✅ 활성' : '❌ 비활성'}`);
+        });
+
         // 🚀 [액션 3] 2~4명이 모인 후 방장이 최종 시작을 누를 때 실행되는 함수
         function triggerGameStartByLeader() {
             if (!isRoomLeader) {
@@ -1412,12 +1469,15 @@
 
             // 3. 👑 방장이 되었고 2명 이상일 때 금빛 오라 스타트 버튼 노출!
             const startBtn = document.getElementById('my-start-game-button');
+            const expansionArea = document.getElementById('expansion-toggle-area');
             if (data.leaderID === socket.id && data.players.length >= 2) {
                 isRoomLeader = true;
                 if (startBtn) startBtn.style.display = 'block';
+                if (expansionArea) expansionArea.style.display = 'block';
             } else {
                 isRoomLeader = (data.leaderID === socket.id);
                 if (startBtn) startBtn.style.display = 'none';
+                if (expansionArea && !isRoomLeader) expansionArea.style.display = 'none';
             }
 
             if (typeof updatePlayersUI === 'function') updatePlayersUI();
@@ -1494,6 +1554,260 @@
             logMessage(`🌟 [${data.nickname}] 님이 ${TURN_ORDER_MARKER_LABEL[data.marker]} 마커를 선택했습니다.`);
         });
 
+        // ⚗️ 유물 선택 페이즈 핸들러
+        function renderArtifactChoices(supply, restrictions) {
+            const row = document.getElementById('artifact-choice-row');
+            if (!row) return;
+            row.innerHTML = '';
+            supply.forEach(a => {
+                const isTaken = !!a.claimedBy;
+                const isRestricted = restrictions && restrictions[userNickname] === a.id && currentRound > 1;
+                const div = document.createElement('div');
+                div.className = 'artifact-tile' + (isTaken ? ' artifact-taken' : '') + (isRestricted ? ' artifact-restricted' : '');
+                div.title = a.desc || '';
+                div.innerHTML = `<span class="artifact-emoji">${a.emoji}</span><div class="artifact-name">${a.nameKo}</div><div class="artifact-type-badge artifact-type-${a.type}">${a.type === 'action' ? '행동' : a.type === 'instant' ? '즉발' : '지속'}</div>${isTaken ? `<div style="font-size:0.62rem; color:#64748b; margin-top:4px;">${a.claimedBy}</div>` : ''}${isRestricted ? `<div style="font-size:0.62rem; color:#f87171; margin-top:4px;">직전 선택 (불가)</div>` : ''}`;
+                if (!isTaken && !isRestricted) {
+                    div.onclick = () => {
+                        socket.emit('action_pickArtifact', { roomID: currentRoomID, artifactId: a.id });
+                        const overlay = document.getElementById('artifact-select-overlay');
+                        if (overlay) overlay.style.display = 'none';
+                    };
+                }
+                row.appendChild(div);
+            });
+        }
+
+        socket.on('artifactSelectionStart', (data) => {
+            if (data.logMessage) logMessage(data.logMessage);
+            currentArtifactSupply = data.artifactSupply || [];
+            const overlay = document.getElementById('artifact-select-overlay');
+            const desc = document.getElementById('artifact-select-desc');
+            const status = document.getElementById('artifact-select-status');
+            if (desc) desc.innerText = `${data.currentSelectorNickname}님이 유물을 선택합니다.`;
+            if (status) status.innerText = '';
+            renderArtifactChoices(data.artifactSupply || [], data.lastRoundRestrictions || {});
+            // 내 차례이면 선택 오버레이 열기
+            if (overlay) overlay.style.display = data.currentSelectorID === socket.id ? 'flex' : 'none';
+            updateArtifactSupplyUI();
+        });
+
+        socket.on('artifactSelectionNext', (data) => {
+            if (data.logMessage) logMessage(data.logMessage);
+            const overlay = document.getElementById('artifact-select-overlay');
+            const desc = document.getElementById('artifact-select-desc');
+            if (desc) desc.innerText = `${data.currentSelectorNickname}님이 유물을 선택합니다.`;
+            renderArtifactChoices(currentArtifactSupply, data.lastRoundRestrictions || {});
+            if (overlay) overlay.style.display = data.currentSelectorID === socket.id ? 'flex' : 'none';
+        });
+
+        socket.on('artifactPickUpdate', (data) => {
+            // 공급 목록에서 해당 유물을 claimed로 표시
+            const found = currentArtifactSupply.find(a => a.id === data.artifactId);
+            if (found) found.claimedBy = data.pickerNickname;
+            // 내가 선택한 유물이면 저장
+            if (data.pickerNickname === userNickname) {
+                myArtifact = data.artifact || found;
+                myArtifactUsed = false;
+                updateMyArtifactUI();
+                logMessage(`⚗️ [유물 획득] [${myArtifact?.nameKo}] 획득! ${myArtifact?.desc || ''}`);
+            } else {
+                logMessage(`⚗️ ${data.pickerNickname}님이 [${data.artifact?.nameKo || data.artifactId}] 유물을 선택했습니다.`);
+            }
+            updateArtifactSupplyUI();
+        });
+
+        socket.on('triggerArtifactInstant', (data) => {
+            // 즉발 유물 효과: 현자의 돌, 마술피리
+            if (data.artifact) resolveArtifactInstantEffect(data.artifact);
+        });
+
+        socket.on('artifactUsed', (data) => {
+            const found = currentArtifactSupply.find(a => a.id === data.artifactId);
+            if (found) found.claimedBy = null;
+            if (data.ownerNickname === userNickname) {
+                myArtifact = null;
+                myArtifactUsed = true;
+                updateMyArtifactUI();
+            }
+            updateArtifactSupplyUI();
+            logMessage(`⚗️ ${data.ownerNickname}님이 [${data.artifact?.nameKo || data.artifactId}] 유물 행동 사용 후 반환했습니다.`);
+        });
+
+        socket.on('artifactsReturned', (data) => {
+            currentArtifactSupply = data.artifactSupply || [];
+            myArtifact = null;
+            myArtifactUsed = false;
+            updateMyArtifactUI();
+            updateArtifactSupplyUI();
+        });
+
+        socket.on('akultDragonList', (data) => {
+            const cards = data.cards || [];
+            if (cards.length === 0) { logMessage(`🌊 [아쿨트] 버린 더미에 드래곤 카드가 없습니다.`); return; }
+            const names = cards.map((c, i) => `${i+1}. ${c.name} (비용: ${c.cost})`).join('\n');
+            const choice = parseInt(prompt(`🌊 [아쿨트] 무료 소환할 드래곤 카드:\n${names}`) || '1', 10) - 1;
+            const chosen = cards[Math.max(0, Math.min(cards.length - 1, choice))];
+            if (chosen && mySummonZone.length < getSummonZoneLimit()) {
+                mySummonZone.push(chosen);
+                updateSummonZoneUI && updateSummonZoneUI();
+                triggerInstantEffect(chosen);
+                logMessage(`🌊 [아쿨트] [${chosen.name}] 무료 소환!`);
+                socket.emit('playerExecutedAction', { roomID: currentRoomID, actionType: 'summon', cardName: chosen.name, cardCost: chosen.cost, cardType: chosen.type, userNickname, currentScore: myScore, currentStones: myStones, currentSummonZone: mySummonZone });
+            } else if (!chosen) {
+                logMessage(`🌊 [아쿨트] 선택이 취소되었습니다.`);
+            } else {
+                logMessage(`🌊 [아쿨트] 소환존이 가득 찼습니다.`);
+            }
+        });
+
+        // 유물 행동 사용 UI
+        function openUseArtifactUI() {
+            if (!myArtifact || myArtifact.type !== 'action' || myArtifactUsed) return;
+            resolveArtifactActionEffect(myArtifact);
+        }
+
+        function resolveArtifactInstantEffect(artifact) {
+            switch (artifact.id) {
+                case 'philo': { // 현자의 돌: 포획 카드 중 1장 손에 추가, 다른 1장 버리고 6원 획득
+                    if (myCapturedCards.length === 0) { logMessage(`⚗️ [현자의 돌] 포획된 카드가 없습니다.`); return; }
+                    // 단순: 첫 번째 카드를 손에 추가
+                    const got = myCapturedCards.shift();
+                    myHand.push(got);
+                    logMessage(`⚗️ [현자의 돌] [${got.name}] 손에 추가했습니다.`);
+                    if (myCapturedCards.length > 0) {
+                        const discarded = myCapturedCards.shift();
+                        gainStone('purple'); // 6원 = 보라석
+                        logMessage(`   ↳ [${discarded.name}] 버리고 🟣 6원 획득!`);
+                    }
+                    updateHandUI && updateHandUI();
+                    updateResourcesUI && updateResourcesUI();
+                    break;
+                }
+                case 'flute': { // 마술피리: 카드 1장 뽑기 또는 포획 카드 전부 손에 넣기
+                    const choice = confirm(`🎵 [마술피리]\n✅ 확인: 카드 1장 뽑기\n❌ 취소: 포획 카드 전부 손에 넣기`);
+                    if (choice) {
+                        socket.emit('requestDrawCard', { roomID: currentRoomID, sourceCardName: '마술피리' });
+                    } else {
+                        myCapturedCards.forEach(c => { myHand.push(c); logMessage(`   ↳ 포획 카드 [${c.name}] 손에 추가.`); });
+                        myCapturedCards = [];
+                        updateHandUI && updateHandUI();
+                    }
+                    break;
+                }
+            }
+        }
+
+        function resolveArtifactActionEffect(artifact) {
+            switch (artifact.id) {
+                case 'grimoire': { // 토트의 고서: 보유 마법석 중 최대 2개 1단계 승급
+                    const upgradeable = ['red','blue','purple'].filter(c => myStones[c] > 0);
+                    if (upgradeable.length === 0) { logMessage(`📖 [토트의 고서] 승급할 마법석이 없습니다.`); return; }
+                    let upgraded = 0;
+                    const order = ['red','blue','purple'];
+                    for (const c of order) {
+                        if (upgraded >= 2) break;
+                        if (myStones[c] > 0) {
+                            // 승급: 1원→3원→6원 (red→blue→purple)
+                            const nextColor = c === 'red' ? 'blue' : c === 'blue' ? 'purple' : null;
+                            if (nextColor) {
+                                myStones[c]--;
+                                myStones[nextColor] = (myStones[nextColor] || 0) + 1;
+                                logMessage(`📖 [토트의 고서] ${c === 'red' ? '🔴 1원' : '🔵 3원'} → ${nextColor === 'blue' ? '🔵 3원' : '🟣 6원'} 승급!`);
+                                upgraded++;
+                            }
+                        }
+                    }
+                    updateResourcesUI && updateResourcesUI();
+                    break;
+                }
+                case 'helm': { // 하데스의 투구: 더미에서 1장 포획 + 영역토큰 1단계 또는 6원 1개
+                    socket.emit('requestDrawCard', { roomID: currentRoomID, sourceCardName: '하데스의 투구', destinationType: 'capture' });
+                    const choice = confirm(`⛑️ [하데스의 투구]\n✅ 확인: 영역토큰 +1\n❌ 취소: 🟣 6원 1개 획득`);
+                    if (choice) gainTerritoryToken();
+                    else { gainStone('purple'); updateResourcesUI && updateResourcesUI(); }
+                    logMessage(`⛑️ [하데스의 투구] 더미에서 1장 포획 + ${choice ? '영역토큰 +1' : '🟣 6원 획득'}`);
+                    break;
+                }
+                case 'seal': { // 제왕의 인장: 자기 영역 카드 1장 버리기 → 드래곤이면 3원 획득
+                    if (mySummonZone.length === 0) { logMessage(`🔏 [제왕의 인장] 소환존이 비어있습니다.`); return; }
+                    const idx = mySummonZone.findIndex(c => c.type && c.type.includes('🐉'));
+                    if (idx !== -1) {
+                        const removed = mySummonZone.splice(idx, 1)[0];
+                        gainStone('purple'); // 3원
+                        logMessage(`🔏 [제왕의 인장] [${removed.name}] (드래곤) 버리고 🟣 3원 획득!`);
+                        updateSummonZoneUI && updateSummonZoneUI();
+                        updateResourcesUI && updateResourcesUI();
+                    } else {
+                        const removed = mySummonZone.splice(0, 1)[0];
+                        logMessage(`🔏 [제왕의 인장] [${removed.name}] 버림 (드래곤 아님, 자원 없음)`);
+                        updateSummonZoneUI && updateSummonZoneUI();
+                    }
+                    break;
+                }
+                case 'ring': { // 소원의 반지: 자기 영역의 환기 효과 1개 즉시 발동
+                    const refreshCards = mySummonZone.filter(c => c.timing === 'refresh' || (c.timing === 'both' && c.type && c.type.includes('REFRESH')));
+                    if (refreshCards.length === 0) { logMessage(`💍 [소원의 반지] 발동할 환기 카드가 없습니다.`); return; }
+                    const target = refreshCards[0];
+                    logMessage(`💍 [소원의 반지] [${target.name}]의 환기 효과를 즉시 발동합니다!`);
+                    if (typeof executeRefreshCardEffect === 'function') executeRefreshCardEffect(target, true);
+                    break;
+                }
+                case 'censer': { // 신비한 향로: 3원 내고 영역토큰 1단계 또는 더미에서 2장 포획
+                    const stoneVal = getStoneValues ? getStoneValues() : { red: 1, blue: 3, purple: 6 };
+                    const totalStones = (myStones.red * stoneVal.red) + (myStones.blue * stoneVal.blue) + (myStones.purple * stoneVal.purple);
+                    if (totalStones < 3) { logMessage(`🏺 [신비한 향로] 3원이 부족합니다.`); return; }
+                    // 간단 구현: 빨간석 3개 or 파란석 1개 소모
+                    const choice = confirm(`🏺 [신비한 향로] (3원 소모)\n✅ 확인: 영역토큰 +1\n❌ 취소: 더미에서 2장 포획`);
+                    // 3원 소모 (빨간 우선)
+                    let remaining = 3;
+                    for (const c of ['red','blue','purple']) {
+                        while (myStones[c] > 0 && remaining > 0) {
+                            const v = c === 'red' ? 1 : c === 'blue' ? 3 : 6;
+                            myStones[c]--;
+                            remaining -= v;
+                        }
+                    }
+                    if (choice) gainTerritoryToken();
+                    else { captureCardFromDeck(2); logMessage(`🏺 [신비한 향로] 더미에서 2장 포획 시도`); }
+                    updateResourcesUI && updateResourcesUI();
+                    break;
+                }
+                case 'ruyi': { // 여의봉: 손에서 카드 2장 버리고 1원+1원+3원+6원 획득
+                    if (myHand.length < 2) { logMessage(`🪄 [여의봉] 손패에 카드가 2장 미만입니다.`); return; }
+                    myHand.splice(0, 2);
+                    gainStone('red'); gainStone('red'); gainStone('blue'); gainStone('purple');
+                    logMessage(`🪄 [여의봉] 손패 2장 버리고 🔴×2 + 🔵×1 + 🟣×1 획득!`);
+                    updateHandUI && updateHandUI();
+                    updateResourcesUI && updateResourcesUI();
+                    break;
+                }
+                case 'boots': { // 마법 장화: 카드 1장 더 공개하고 그중 1장 포획
+                    socket.emit('requestDrawCard', { roomID: currentRoomID, sourceCardName: '마법 장화', destinationType: 'capture' });
+                    logMessage(`👢 [마법 장화] 더미에서 1장을 포획했습니다.`);
+                    break;
+                }
+                case 'fleece': { // 황금 양털: 1원 2개 획득 + (더미에서 1장 포획 또는 포획카드 1장 손에 추가)
+                    gainStone('red'); gainStone('red');
+                    const choice = confirm(`🌿 [황금 양털] 🔴🔴 획득!\n✅ 확인: 더미에서 1장 포획\n❌ 취소: 포획 카드 1장을 손에 추가`);
+                    if (choice) {
+                        socket.emit('requestDrawCard', { roomID: currentRoomID, sourceCardName: '황금 양털', destinationType: 'capture' });
+                    } else if (myCapturedCards.length > 0) {
+                        const got = myCapturedCards.shift();
+                        myHand.push(got);
+                        logMessage(`🌿 [황금 양털] 포획 카드 [${got.name}] 손에 추가.`);
+                        updateHandUI && updateHandUI();
+                    }
+                    logMessage(`🌿 [황금 양털] 🔴×2 획득!`);
+                    updateResourcesUI && updateResourcesUI();
+                    break;
+                }
+                default:
+                    logMessage(`⚗️ [${artifact.nameKo}] 행동 효과 처리 중...`);
+            }
+            // 서버에 유물 사용 알림 → 공급처 반환
+            socket.emit('action_useArtifact', { roomID: currentRoomID, artifactId: artifact.id, ownerNickname: userNickname });
+        }
+
         // 🔔 [수신 4] 마커 선택 마감 → 선플레이어 순서 발표 → 구름 트랜지션 → 게임 화면 진입
         socket.on('gameStartSignal', (data) => {
             logMessage(`⚔️ [게임 대전 개시] 전장으로 입장합니다.`);
@@ -1501,6 +1815,16 @@
             if (markerCountdownInterval) { clearInterval(markerCountdownInterval); markerCountdownInterval = null; }
             const markerOverlay = document.getElementById('marker-select-overlay');
             if (markerOverlay) markerOverlay.style.display = 'none';
+
+            // ⚗️ 확장 설정 수신
+            if (data.expansions) {
+                expansionEnabled = !!data.expansions.artifacts;
+                if (expansionEnabled) {
+                    currentArtifactSupply = data.artifactSupply || [];
+                    updateArtifactSupplyUI();
+                    logMessage(`⚗️ [아티팩츠 확장] 활성! 확장 카드 28장 + 유물 타일 포함. 종료 점수: 80점`);
+                }
+            }
 
             // 🛡️ [순정 데이터 보존]
             if (data.sharedMarketCards) marketCards = data.sharedMarketCards;
@@ -1605,6 +1929,83 @@
         let marketCards = []; // 현재 마켓에 배치된 카드들 (최대 6장)
         let myHand = [];      // 내 손패에 있는 카드들
         let mySummonZone = []; // 내 전장에 소환된 카드들 (최대 10개 슬롯)
+
+        // ⚗️ 아티팩츠 확장 상태
+        let expansionEnabled = false;
+        let currentArtifactSupply = [];  // 공급 중인 유물 타일 목록
+        let myArtifact = null;            // 이번 라운드 내가 선택한 유물
+        let myArtifactUsed = false;       // 이번 라운드 행동 사용 여부
+        let myCapturedCards = [];         // 포획된 카드 목록
+        let myTerritoryToken = 0;         // 영역 토큰 (0/1/2)
+        let myLokiElement = null;         // 로키 카드의 현재 차례 계열 ('🔥'|'💧'|'⛰️'|'🍃'|'🐉'|null)
+
+        // 소환존 한도 = currentRound + 영역토큰
+        function getSummonZoneLimit() { return currentRound + myTerritoryToken; }
+
+        // 귀환: 소환존에서 손패로 돌려보내기
+        function returnCardToHand(cardName) {
+            const idx = mySummonZone.findIndex(c => c.name === cardName);
+            if (idx === -1) return false;
+            const card = mySummonZone.splice(idx, 1)[0];
+            myHand.push(card);
+            logMessage(`🔄 [귀환] [${cardName}] 소환존 → 손패로 귀환했습니다.`);
+            if (typeof updateSummonZoneUI === 'function') updateSummonZoneUI();
+            if (typeof updateHandUI === 'function') updateHandUI();
+            return true;
+        }
+
+        // 영역토큰 증가 (최대 2)
+        function gainTerritoryToken() {
+            if (myTerritoryToken >= 2) { logMessage(`🏰 [영역토큰] 이미 최대(+2)입니다.`); return false; }
+            myTerritoryToken++;
+            const el = document.getElementById('territory-token-value');
+            if (el) el.innerText = myTerritoryToken;
+            const item = document.getElementById('territory-token-item');
+            if (item) item.style.display = 'block';
+            logMessage(`🏰 [영역토큰] +${myTerritoryToken} (소환 슬롯 +${myTerritoryToken})`);
+            return true;
+        }
+
+        // 포획: 더미(deck)에서 카드 가져와 포획 존에 보관
+        function captureCardFromDeck(count) {
+            // 서버에 drawCard 요청 (기존 requestDrawCard 재활용)
+            for (let i = 0; i < count; i++) {
+                socket.emit('requestDrawCard', { roomID: currentRoomID, sourceCardName: '포획', destinationType: 'capture' });
+            }
+        }
+
+        // 유물 공급 UI 렌더링
+        function updateArtifactSupplyUI() {
+            const zone = document.getElementById('artifact-supply-zone');
+            const list = document.getElementById('artifact-supply-list');
+            if (!zone || !list) return;
+            if (!expansionEnabled || currentArtifactSupply.length === 0) { zone.style.display = 'none'; return; }
+            zone.style.display = 'block';
+            list.innerHTML = '';
+            currentArtifactSupply.forEach(a => {
+                const chip = document.createElement('div');
+                chip.className = 'artifact-supply-chip' + (a.claimedBy ? ' claimed' : '');
+                chip.title = a.desc || '';
+                chip.innerHTML = `${a.emoji} <span>${a.nameKo}</span>${a.claimedBy ? ` <span style="font-size:0.6rem; opacity:0.7;">(${a.claimedBy})</span>` : ''}`;
+                list.appendChild(chip);
+            });
+        }
+
+        // 내 유물 표시 업데이트
+        function updateMyArtifactUI() {
+            const item = document.getElementById('my-artifact-item');
+            const nameEl = document.getElementById('my-artifact-name');
+            const useBtn = document.getElementById('use-artifact-btn');
+            if (!item || !nameEl) return;
+            if (myArtifact) {
+                item.style.display = 'block';
+                nameEl.innerText = `${myArtifact.emoji} ${myArtifact.nameKo}`;
+                // 행동(action) 유물이고 아직 미사용이면 사용 버튼 표시
+                if (useBtn) useBtn.style.display = (myArtifact.type === 'action' && !myArtifactUsed && currentPhase === 'ACTION') ? 'inline-block' : 'none';
+            } else {
+                item.style.display = 'none';
+            }
+        }
         let isSignUpMode = false;
         let userNickname = "MASTER";
 
@@ -2321,6 +2722,32 @@
                 currentSummonZone: mySummonZone
             });
 
+            // ⚗️ [지속] 쿠쿨칸의 보석: 판매 직후 1원 내고 그 카드를 손에 넣을 수 있음
+            if (myArtifact && myArtifact.id === 'jewel' && myStones.red > 0) {
+                const take = confirm(`💎 [쿠쿨칸의 보석] 방금 판매한 [${card.name}]을 🔴 1원 내고 손에 넣겠습니까?`);
+                if (take) {
+                    myStones.red--;
+                    myHand.push(card);
+                    updateHandUI && updateHandUI();
+                    updateResourcesUI && updateResourcesUI();
+                    logMessage(`💎 [쿠쿨칸의 보석] [${card.name}] 🔴 1원 내고 손패에 획득!`);
+                }
+            }
+
+            // ⚗️ [지속] 두두리 대왕: 카드 판매 시 받은 마법석 중 1개 승급
+            const duduri614 = mySummonZone.find(c => c.id === 614 || c.name === '두두리 대왕');
+            if (duduri614) {
+                const upgradeable614 = ['red','blue'].find(c => myStones[c] > 0);
+                if (upgradeable614) {
+                    const next614 = upgradeable614 === 'red' ? 'blue' : 'purple';
+                    myStones[upgradeable614]--;
+                    myStones[next614]++;
+                    updateResourcesUI && updateResourcesUI();
+                    logMessage(`   ↳ 👑 [두두리 대왕] 판매 마법석 1개 승급: ${upgradeable614 === 'red' ? '🔴→🔵' : '🔵→🟣'}`);
+                }
+            }
+
+            // ⚗️ [지속] 토템: 자기 카드를 버릴 때 6원 누적 획득 (여기서는 판매=버리기 없음, 제거 행동에서 처리)
             closeCardModal();
         }
 
@@ -2537,8 +2964,9 @@
             const card = myHand[cardIndex];
 
             // 1. 전장 슬롯 오픈 공간 체크
-            if (mySummonZone.length >= currentRound) {
-                alert(`🚨 소환 불가능! 현재 ${currentRound}라운드이므로 최대 ${currentRound}개의 슬롯만 이용할 수 있습니다.`);
+            const summonLimit = getSummonZoneLimit();
+            if (mySummonZone.length >= summonLimit) {
+                alert(`🚨 소환 불가능! 현재 ${currentRound}라운드이므로 최대 ${summonLimit}개의 슬롯만 이용할 수 있습니다.`);
                 return;
             }
 
@@ -2559,6 +2987,12 @@
                 let isWindCard = card.element === 'wind' || (card.type && card.type.includes('🍃')) || ["민들레 요정","페가수스","텐구","하피","지니","보레아스","실프","히포그리프","발키리","상급 지니","오딘","프레이야","그리폰","루드라","기린"].includes(card.name);
                 if (isWindCard && mySummonZone.some(c => c.id === 408 || c.name === "히포그리프")) {
                     reducedCost -= 2;
+                }
+
+                // ⚗️ [지속] 벨페고르(606): 불 카드 소환비용 1원으로 고정
+                const isFireCard = card.element === 'fire' || (card.type && card.type.includes('🔥'));
+                if (isFireCard && mySummonZone.some(c => c.id === 606 || c.name === '벨페고르')) {
+                    reducedCost = 1;
                 }
 
                 finalCost = Math.max(1, reducedCost);
@@ -2806,7 +3240,29 @@
 
             logMessage(`💀 [제거] ${userNickname}님이 ${currentRound} 가치를 내고 전장의 [${card.name}]을 폐기했습니다.`);
 
-            if (typeof updateSummonZoneUI === 'function') updateSummonZoneUI(); 
+            if (typeof updateSummonZoneUI === 'function') updateSummonZoneUI();
+
+            // ⚗️ [지속] 잿불: "카드 제거하기" 행동으로 버릴 때 손패로 귀환 + 라운드 숫자만큼 점수 획득
+            const jatbul602 = mySummonZone.find(c => c.id === 602 || c.name === '잿불');
+            if (jatbul602 && card.id !== 602 && card.name !== '잿불') {
+                const dpIdx = myDiscardPile.findIndex(c => c.id === card.id);
+                if (dpIdx !== -1) {
+                    myDiscardPile.splice(dpIdx, 1);
+                    myHand.push(card);
+                    myScore += currentRound;
+                    updateHandUI && updateHandUI();
+                    updateResourcesUI && updateResourcesUI();
+                    logMessage(`🔥 [잿불] [${card.name}] 손패로 귀환 + 승점 +${currentRound}점!`);
+                }
+            }
+
+            // ⚗️ [지속] 토템: 자기 다른 소환 카드를 버릴 때마다 6원 누적 획득
+            const totem617 = mySummonZone.find(c => c.id === 617 || c.name === '토템');
+            if (totem617 && card.id !== 617 && card.name !== '토템') {
+                gainStone('purple');
+                updateResourcesUI && updateResourcesUI();
+                logMessage(`🪆 [토템] 카드 제거로 🟣 6원 획득!`);
+            }
 
             // 📡 [수정 보정] 제거 시에도 내 최신 데이터 미러링 전송
             socket.emit('playerExecutedAction', {
@@ -3363,7 +3819,7 @@
                             myScore += 4;
                             logMessage(`   ↳ 🪖 [고블린 병사 환기] 나보다 점수가 높은 상대가 있어 승점 +4점 획득!`);
                         } else {
-                            myScore = Math.max(0, myScore - 4);
+                            loseScore(4);
                             logMessage(`   ↳ 🪖 [고블린 병사 환기] 나보다 점수가 높은 상대가 없어 승점 -4점 차감!`);
                         }
                         break;
@@ -3444,6 +3900,97 @@
                         logMessage(`   ↳ 🦅 [그리폰 환기] 덱에서 미사용 카드 1장을 뽑습니다.`);
                         drawCardFromDeck(cardName);
                         break;
+
+                    // ========= ⚗️ 확장 환기 효과 =========
+                    case 603: case "불개": {
+                        const totalStones603 = myStones.red + myStones.blue + myStones.purple;
+                        if (totalStones603 >= 4) {
+                            const choice = confirm(`🐕 [불개 환기] 마법석 4개 이상 보유!\n✅ 확인: 승점 +2점\n❌ 취소: 🔴×3 획득`);
+                            if (choice) { myScore += 2; logMessage(`   ↳ 🐕 [불개 환기] 승점 +2점!`); }
+                            else { gainStone('red'); gainStone('red'); gainStone('red'); logMessage(`   ↳ 🐕 [불개 환기] 🔴×3 획득!`); }
+                        } else { logMessage(`   ↳ 🐕 [불개 환기] 마법석 ${totalStones603}개 (4개 미만, 불발)`); }
+                        break;
+                    }
+                    case 605: case "헤파이스토스": {
+                        const opts = ['3원 1개', '1원 3개', '2점'];
+                        const give = parseInt(prompt(`🔨 [헤파이스토스 환기] 포기할 것:\n1. ${opts[0]}\n2. ${opts[1]}\n3. ${opts[2]}`) || '3', 10) - 1;
+                        for (let i = 0; i < 3; i++) {
+                            if (i !== give) {
+                                if (i === 0) { gainStone('blue'); logMessage(`   ↳ 🔨 [헤파이스토스] 🔵 3원 획득`); }
+                                else if (i === 1) { gainStone('red'); gainStone('red'); gainStone('red'); logMessage(`   ↳ 🔨 [헤파이스토스] 🔴×3 획득`); }
+                                else if (i === 2) { myScore += 2; logMessage(`   ↳ 🔨 [헤파이스토스] 승점 +2점`); }
+                            }
+                        }
+                        break;
+                    }
+                    case 606: case "벨페고르": break; // 지속(즉발)만 있음
+
+                    case 610: case "세이렌": {
+                        if (myHand.length === 0) { logMessage(`   ↳ 🧜 [세이렌 환기] 손패가 없어 불발.`); break; }
+                        myHand.splice(0, 1);
+                        gainStone('blue'); myScore += 2;
+                        logMessage(`   ↳ 🧜 [세이렌 환기] 손패 1장 버리고 🔵 3원 + 승점 +2점!`);
+                        updateHandUI && updateHandUI();
+                        break;
+                    }
+
+                    case 613: case "두두리": {
+                        // 환기: 귀환
+                        const rIdx613 = mySummonZone.findIndex(c => c.id === card.id);
+                        if (rIdx613 !== -1) {
+                            const rCard613 = mySummonZone.splice(rIdx613, 1)[0];
+                            myHand.push(rCard613);
+                            logMessage(`   ↳ 🪨 [두두리 환기] 손패로 귀환!`);
+                            socket.emit('playerExecutedAction', { roomID: currentRoomID, actionType: 'remove', cardName: cardName, cardCost: card.cost, cardType: card.type, userNickname, currentScore: myScore, currentStones: myStones, currentSummonZone: mySummonZone });
+                        }
+                        break;
+                    }
+
+                    case 615: case "맨드레이크": {
+                        const choice615 = confirm(`🌿 [맨드레이크 환기]\n✅ 확인: 버리기 (6원 획득)\n❌ 취소: 승점 -2점 (6원 획득)`);
+                        gainStone('purple');
+                        if (choice615) {
+                            const rIdx615 = mySummonZone.findIndex(c => c.id === card.id);
+                            if (rIdx615 !== -1) { mySummonZone.splice(rIdx615, 1); updateSummonZoneUI && updateSummonZoneUI(); }
+                            logMessage(`   ↳ 🌿 [맨드레이크 환기] 버리고 🟣 6원 획득!`);
+                        } else {
+                            loseScore(2);
+                            logMessage(`   ↳ 🌿 [맨드레이크 환기] 승점 -2점, 🟣 6원 획득!`);
+                        }
+                        break;
+                    }
+
+                    case 619: case "날다람쥐": {
+                        // 환기: 카드 1장 뽑고, 손 1장을 덱 맨 위로
+                        logMessage(`   ↳ 🐿️ [날다람쥐 환기] 카드 1장 뽑습니다.`);
+                        drawCardFromDeck(cardName);
+                        if (myHand.length > 0) {
+                            const returnCard = myHand.shift();
+                            socket.emit('requestReturnCardToDeckTop', { roomID: currentRoomID, cardData: returnCard });
+                            logMessage(`   ↳ 🐿️ [날다람쥐 환기] [${returnCard.name}] 덱 맨 위로 반환.`);
+                        }
+                        break;
+                    }
+
+                    case 620: case "밴시": break; // 지속 효과만(즉발)
+
+                    case 621: case "로크": {
+                        const elemList = ['🔥','💧','⛰️','🍃','🐉'];
+                        const chosenIdx = parseInt(prompt(`🦅 [로크 환기] 계열 선택:\n1.불 2.물 3.땅 4.바람 5.드래곤`) || '1', 10) - 1;
+                        const chosenElem = elemList[Math.max(0, Math.min(4, chosenIdx))];
+                        const cnt621 = mySummonZone.filter(c => c.type && c.type.includes(chosenElem)).length;
+                        myScore += cnt621;
+                        logMessage(`   ↳ 🦅 [로크 환기] ${chosenElem} 계열 ${cnt621}장 ➡️ 승점 +${cnt621}점!`);
+                        break;
+                    }
+
+                    case 623: case "로키": {
+                        // 지속+환기: 환기 시 지속 효과 카드 수만큼 1점
+                        const continuousCards = mySummonZone.filter(c => c.timing === 'continuous' || c.timing === 'both');
+                        myScore += continuousCards.length;
+                        logMessage(`   ↳ 🃏 [로키 환기] 지속 효과 카드 ${continuousCards.length}장 ➡️ 승점 +${continuousCards.length}점!`);
+                        break;
+                    }
                 }
         }
 
@@ -3609,7 +4156,7 @@
 
             const stoneMap = [['red','🔴 빨간'], ['blue','🔵 파란'], ['purple','🟣 보라']];
             const [stoneColor, stoneLabel] = stoneMap[cost];
-            myScore = Math.max(0, myScore - cost);
+            loseScore(cost);
             gainStone(stoneColor);
             logMessage(`   ↳ 🦎 [바실리스크 환기] 승점 ${cost}점 소모 → ${stoneLabel} 마법석 획득!`);
 
@@ -3987,7 +4534,19 @@
 
             // MY TURN 배너 표시 — 턴 주인이 새로 나로 바뀔 때만 (같은 내 턴 중 액션할 때마다 재표시 방지)
             if (data.currentTurnOwnerID === socket.id && currentPhase !== "DRAFT") {
-                if (prevSyncTurnOwnerID !== socket.id) showMyTurnBanner();
+                if (prevSyncTurnOwnerID !== socket.id) {
+                    showMyTurnBanner();
+                    // ⚗️ [지속] 로키(623): 자기 차례마다 계열 선택
+                    const loki623 = mySummonZone.find(c => c.id === 623 || c.name === '로키');
+                    if (loki623) {
+                        const elems = ['🔥 불','💧 물','⛰️ 땅','🍃 바람','🐉 드래곤'];
+                        const choice = parseInt(prompt(`🃏 [로키] 이번 차례 계열 선택:\n1.불 2.물 3.땅 4.바람 5.드래곤`) || '1', 10) - 1;
+                        myLokiElement = ['🔥','💧','⛰️','🍃','🐉'][Math.max(0, Math.min(4, choice))];
+                        logMessage(`🃏 [로키] 이번 차례 계열: ${elems[Math.max(0, Math.min(4, choice))]} 으로 설정`);
+                    } else {
+                        myLokiElement = null;
+                    }
+                }
             }
             prevSyncTurnOwnerID = data.currentTurnOwnerID || null;
 
@@ -4038,9 +4597,21 @@
             const tag = data.sourceCardName ? `[${data.sourceCardName}] 효과로 ` : '';
 
             if (data.success && data.card) {
-                myHand.push(data.card);
-                if (typeof updateHandUI === 'function') updateHandUI();
-                logMessage(`📚 [카드 드로우] ${tag}덱에서 [${data.card.name}](비용: ${data.card.cost})을 손패에 가져왔습니다!`);
+                if (data.destinationType === 'capture') {
+                    myCapturedCards.push(data.card);
+                    logMessage(`🔒 [포획] ${tag}덱에서 [${data.card.name}](비용: ${data.card.cost})을 포획했습니다!`);
+                } else {
+                    myHand.push(data.card);
+                    if (typeof updateHandUI === 'function') updateHandUI();
+                    logMessage(`📚 [카드 드로우] ${tag}덱에서 [${data.card.name}](비용: ${data.card.cost})을 손패에 가져왔습니다!`);
+                    // ⚗️ [지속] 밴시(620): 카드 뽑으면 즉시 귀환
+                    const bansi620 = mySummonZone.find(c => c.id === 620 || c.name === '밴시');
+                    if (bansi620) {
+                        returnCardToHand('밴시');
+                        logMessage(`👻 [밴시] 카드를 뽑았으므로 손패로 귀환!`);
+                        socket.emit('playerExecutedAction', { roomID: currentRoomID, actionType: 'remove', cardName: '밴시', cardCost: bansi620.cost, cardType: bansi620.type, userNickname, currentScore: myScore, currentStones: myStones, currentSummonZone: mySummonZone });
+                    }
+                }
             } else {
                 logMessage(`📚 [카드 드로우] ${tag}덱에 더 이상 뽑을 카드가 없습니다.`);
             }
@@ -4051,7 +4622,7 @@
         socket.on('goblinStealOrder', (data) => {
             if (!data || data.targetNickname !== userNickname) return;
 
-            myScore = Math.max(0, myScore - 1);
+            loseScore(1);
             logMessage(`   ↳ 👺 [고블린 강탈] ${data.casterNickname}님에게 승점 1점을 빼앗겼습니다!`);
 
             if (typeof updateResourcesUI === 'function') updateResourcesUI();
@@ -4317,11 +4888,41 @@
                 myStones[stoneColor] += 1;
                 logMessage(`💎 [자원 획득] ${getStoneEmoji(stoneColor)} 마법석 1개를 획득했습니다.`);
                 updateResourcesUI();
+                // ⚗️ [지속] 불보라(604): 마법석 4개 이상이면 즉시 귀환
+                const bulbora604 = mySummonZone.find(c => c.id === 604 || c.name === '불보라');
+                if (bulbora604 && (myStones.red + myStones.blue + myStones.purple) >= 4) {
+                    returnCardToHand('불보라');
+                    logMessage(`🔥 [불보라] 마법석 4개 이상! 손패로 귀환.`);
+                    socket.emit('playerExecutedAction', { roomID: currentRoomID, actionType: 'remove', cardName: '불보라', cardCost: bulbora604.cost, cardType: bulbora604.type, userNickname, currentScore: myScore, currentStones: myStones, currentSummonZone: mySummonZone });
+                }
+                // ⚗️ [지속] 탈라사(609): 3원(파란석) 획득 시 즉시 귀환
+                if (stoneColor === 'blue') {
+                    const talasa609 = mySummonZone.find(c => c.id === 609 || c.name === '탈라사');
+                    if (talasa609) {
+                        returnCardToHand('탈라사');
+                        logMessage(`🌊 [탈라사] 3원 획득! 손패로 귀환.`);
+                        socket.emit('playerExecutedAction', { roomID: currentRoomID, actionType: 'remove', cardName: '탈라사', cardCost: talasa609.cost, cardType: talasa609.type, userNickname, currentScore: myScore, currentStones: myStones, currentSummonZone: mySummonZone });
+                    }
+                }
                 return;
             }
 
             pendingIncomingStoneColor = stoneColor;
             openStoneReplaceModal();
+        }
+
+        // ⚗️ [지속] 웬디고(618) 트리거용 점수 감소 헬퍼
+        function loseScore(amount) {
+            const before = myScore;
+            myScore = Math.max(0, myScore - amount);
+            if (myScore < before) {
+                const wendigo618 = mySummonZone.find(c => c.id === 618 || c.name === '웬디고');
+                if (wendigo618) {
+                    returnCardToHand('웬디고');
+                    logMessage(`👹 [웬디고] 점수 감소! 손패로 귀환.`);
+                    socket.emit('playerExecutedAction', { roomID: currentRoomID, actionType: 'remove', cardName: '웬디고', cardCost: wendigo618.cost, cardType: wendigo618.type, userNickname, currentScore: myScore, currentStones: myStones, currentSummonZone: mySummonZone });
+                }
+            }
         }
 
         // 🎨 마법석 이모지 변환 헬퍼 (순정 보존)
@@ -4855,7 +5456,7 @@
             });
 
             // 2단계: 남은 손패 중에서 무료로 소환할 카드 선택
-            if (mySummonZone.length >= currentRound) {
+            if (mySummonZone.length >= getSummonZoneLimit()) {
                 logMessage(`   ↳ 🌱 [새싹의 정령] 전장 슬롯이 가득 차 무료 소환 효과가 불발되었습니다.`);
                 return;
             }
@@ -5383,7 +5984,7 @@
 
                 if (dragonCandidates.length === 0) {
                     logMessage(`   ↳ 🥚 [드래곤 알] 손패에 소환할 드래곤 속성 카드가 없어 효과가 불발되었습니다.`);
-                } else if (mySummonZone.length >= currentRound) {
+                } else if (mySummonZone.length >= getSummonZoneLimit()) {
                     logMessage(`   ↳ 🥚 [드래곤 알] 전장 슬롯이 가득 차 무료 소환 효과가 불발되었습니다.`);
                 } else {
                     openHandSelectModal(
@@ -5440,9 +6041,187 @@
                 myScore += finalDragonPoints;
                 logMessage(`👑 [이터니티 즉발] 🌟신성 전개! 전장 내 모든 속성 도합 [${totalTypes}종] x 4 ➡️ 승점 +${finalDragonPoints}점 획득!`);
 
+            // ================= 🔥 확장 불 즉발 =================
+            } else if (cardId === 601 || cardName === "불쥐") {
+                const cheapCards = mySummonZone.filter(c => Number(c.cost) <= 3);
+                const pts = cheapCards.length;
+                myScore += pts;
+                logMessage(`🐭 [불쥐 즉발] 비용 3 이하 카드 [${pts}장] ➡️ 승점 +${pts}점!`);
+
+            } else if (cardId === 604 || cardName === "불보라") {
+                const fireCards = mySummonZone.filter(c => (c.type && c.type.includes('🔥')) || c.element === 'fire');
+                const pts = Math.floor(fireCards.length / 2);
+                myScore += pts;
+                logMessage(`🔥 [불보라 즉발] 불 카드 ${fireCards.length}장 (2장당 1점) ➡️ 승점 +${pts}점!`);
+
+            } else if (cardId === 606 || cardName === "벨페고르") {
+                gainStone('red');
+                logMessage(`😈 [벨페고르 즉발] 🔴 1원 획득! (지속: 불 카드 소환비용 1원 고정)`);
+
+            // ================= 💧 확장 물 즉발 =================
+            } else if (cardId === 607 || cardName === "타와레트") {
+                if (myHand.length === 0) { logMessage(`🦛 [타와레트 즉발] 손패가 없습니다.`); }
+                else {
+                    const discardCount = parseInt(prompt(`🦛 [타와레트] 몇 장 버리겠습니까? (0~${myHand.length})`) || '0', 10) || 0;
+                    const actual = Math.max(0, Math.min(discardCount, myHand.length));
+                    myHand.splice(0, actual);
+                    for (let i = 0; i < actual; i++) gainStone('blue');
+                    logMessage(`🦛 [타와레트 즉발] ${actual}장 버리고 🔵×${actual} 획득!`);
+                    updateHandUI && updateHandUI();
+                }
+
+            } else if (cardId === 608 || cardName === "멜루진") {
+                const maxDiscard = Math.min(3, myHand.length);
+                if (maxDiscard === 0) { logMessage(`🧜 [멜루진 즉발] 손패가 없습니다.`); }
+                else {
+                    const discardCount = parseInt(prompt(`🧜 [멜루진] 최대 3장 버릴 수 있습니다. 몇 장? (0~${maxDiscard})`) || '0', 10) || 0;
+                    const actual = Math.max(0, Math.min(discardCount, maxDiscard));
+                    // 4원 = 1×파란석(3원) + 1×빨간석(1원) 조합
+                    myHand.splice(0, actual);
+                    for (let i = 0; i < actual; i++) { gainStone('blue'); gainStone('red'); }
+                    logMessage(`🧜 [멜루진 즉발] ${actual}장 버리고 4원×${actual} 획득! (🔵+🔴 각 ${actual}개)`);
+                    updateHandUI && updateHandUI();
+                }
+
+            } else if (cardId === 609 || cardName === "탈라사") {
+                const waterCards = mySummonZone.filter(c => (c.type && c.type.includes('💧')) || c.element === 'water');
+                myScore += waterCards.length;
+                logMessage(`🌊 [탈라사 즉발] 물 카드 ${waterCards.length}장 ➡️ 승점 +${waterCards.length}점!`);
+
+            } else if (cardId === 611 || cardName === "크라켄") {
+                const elements = ['🔥','💧','⛰️','🍃','🐉'];
+                const elementNames = ['불','물','땅','바람','드래곤'];
+                const chosen = prompt(`🦑 [크라켄] 계열 선택:\n1.불 2.물 3.땅 4.바람 5.드래곤`, '2');
+                const idx = (parseInt(chosen||'2',10) - 1);
+                const elem = elements[idx] || '💧';
+                const ename = elementNames[idx] || '물';
+                const cnt = mySummonZone.filter(c => c.type && c.type.includes(elem)).length;
+                myScore += cnt * 2;
+                logMessage(`🦑 [크라켄 즉발] ${ename} 계열 ${cnt}장 x 2 ➡️ 승점 +${cnt*2}점!`);
+
+            } else if (cardId === 612 || cardName === "아쿨트") {
+                logMessage(`🌊 [아쿨트 즉발] 공용 버린 더미의 드래곤 카드 중 1장을 무료 소환합니다. (서버 처리 필요)`);
+                socket.emit('action_akultFreeSummon', { roomID: currentRoomID });
+
+            // ================= ⛰️ 확장 땅 즉발 =================
+            } else if (cardId === 613 || cardName === "두두리") {
+                // 즉발: 1점 잃고 마법석 1개 승급
+                loseScore(1);
+                const upgradeable = ['red','blue'].find(c => myStones[c] > 0);
+                if (upgradeable) {
+                    const nextC = upgradeable === 'red' ? 'blue' : 'purple';
+                    myStones[upgradeable]--;
+                    myStones[nextC]++;
+                    logMessage(`🪨 [두두리 즉발] 1점 잃고 ${upgradeable === 'red' ? '🔴→🔵' : '🔵→🟣'} 승급!`);
+                } else {
+                    logMessage(`🪨 [두두리 즉발] 1점 잃었으나 승급할 마법석이 없습니다.`);
+                }
+                updateResourcesUI && updateResourcesUI();
+
+            } else if (cardId === 615 || cardName === "맨드레이크") {
+                myScore += 3;
+                logMessage(`🌿 [맨드레이크 즉발] 승점 +3점!`);
+
+            } else if (cardId === 616 || cardName === "아누비스") {
+                if (mySummonZone.length <= 1) { logMessage(`⚖️ [아누비스 즉발] 버릴 다른 카드가 없습니다.`); }
+                else {
+                    const target = mySummonZone.find(c => c.id !== card.id && c.name !== card.name);
+                    if (target) {
+                        const pts = Number(target.cost) || 0;
+                        myScore += pts;
+                        const tIdx = mySummonZone.indexOf(target);
+                        mySummonZone.splice(tIdx, 1);
+                        logMessage(`⚖️ [아누비스 즉발] [${target.name}] 버리고 비용 ${pts}만큼 승점 +${pts}점!`);
+                        updateSummonZoneUI && updateSummonZoneUI();
+                    }
+                }
+
+            } else if (cardId === 618 || cardName === "웬디고") {
+                const earthCards = mySummonZone.filter(c => (c.type && c.type.includes('⛰️')) || c.element === 'earth');
+                myScore += earthCards.length * 2;
+                logMessage(`👹 [웬디고 즉발] 땅 카드 ${earthCards.length}장 x 2 ➡️ 승점 +${earthCards.length * 2}점!`);
+
+            // ================= 🍃 확장 바람 즉발 =================
+            } else if (cardId === 619 || cardName === "날다람쥐") {
+                logMessage(`🐿️ [날다람쥐 즉발] 카드 1장 뽑습니다!`);
+                drawCardFromDeck(cardName);
+
+            } else if (cardId === 620 || cardName === "밴시") {
+                const types = new Set(mySummonZone.map(c => {
+                    if (c.type && c.type.includes('🔥')) return 'fire';
+                    if (c.type && c.type.includes('💧')) return 'water';
+                    if (c.type && c.type.includes('⛰️')) return 'earth';
+                    if (c.type && c.type.includes('🍃')) return 'wind';
+                    if (c.type && c.type.includes('🐉')) return 'dragon';
+                    return 'etc';
+                }));
+                const pts = types.size;
+                myScore += pts;
+                logMessage(`👻 [밴시 즉발] 전장 계열 종류 ${pts}종 ➡️ 승점 +${pts}점!`);
+
+            } else if (cardId === 622 || cardName === "호루스") {
+                logMessage(`🦅 [호루스 즉발] 손패에서 카드 1장을 무료 소환하고, 그 비용만큼 승점을 획득합니다.`);
+                if (myHand.length === 0) { logMessage(`   ↳ 손패가 없습니다.`); }
+                else {
+                    openHandSelectModal(
+                        "🦅 호루스 - 무료 소환할 카드 선택",
+                        "손패에서 무료로 소환할 카드 1장을 선택하세요.",
+                        myHand,
+                        (idx) => {
+                            if (mySummonZone.length >= getSummonZoneLimit()) {
+                                logMessage(`   ↳ 🦅 [호루스] 전장 슬롯이 가득 차 효과가 불발되었습니다.`);
+                                return;
+                            }
+                            const [c] = myHand.splice(idx, 1);
+                            mySummonZone.push(c);
+                            const pts = Number(c.cost) || 0;
+                            myScore += pts;
+                            logMessage(`   ↳ 🦅 [호루스] [${c.name}] 무료 소환 + 비용 ${pts}만큼 승점 +${pts}점!`);
+                            updateHandUI && updateHandUI();
+                            updateSummonZoneUI && updateSummonZoneUI();
+                            triggerInstantEffect(c);
+                        },
+                        "손패가 없습니다."
+                    );
+                }
+
+            } else if (cardId === 624 || cardName === "안주") {
+                const types = new Set(myHand.map(c => {
+                    if (c.type && c.type.includes('🔥')) return 'fire';
+                    if (c.type && c.type.includes('💧')) return 'water';
+                    if (c.type && c.type.includes('⛰️')) return 'earth';
+                    if (c.type && c.type.includes('🍃')) return 'wind';
+                    if (c.type && c.type.includes('🐉')) return 'dragon';
+                    return 'etc';
+                }));
+                const pts = types.size * 3;
+                myScore += pts;
+                logMessage(`🦅 [안주 즉발] 손패 계열 ${types.size}종 x 3 ➡️ 승점 +${pts}점!`);
+
+            // ================= 🐉 확장 드래곤 즉발 (교환형) =================
+            } else if (cardId === 625 || cardName === "딥다이브") {
+                myScore += 7;
+                logMessage(`🌊 [딥다이브 즉발] 승점 +7점! 대상 플레이어의 물 계열 카드 1장과 이 카드를 교환합니다.`);
+                openTargetPlayerModal(card);
+
+            } else if (cardId === 626 || cardName === "파이로") {
+                myScore += 7;
+                logMessage(`🔥 [파이로 즉발] 승점 +7점! 대상 플레이어의 불 계열 카드 1장과 이 카드를 교환합니다.`);
+                openTargetPlayerModal(card);
+
+            } else if (cardId === 627 || cardName === "위스퍼") {
+                myScore += 8;
+                logMessage(`🍃 [위스퍼 즉발] 승점 +8점! 대상 플레이어의 바람 계열 카드 1장과 이 카드를 교환합니다.`);
+                openTargetPlayerModal(card);
+
+            } else if (cardId === 628 || cardName === "락스케일") {
+                myScore += 8;
+                logMessage(`⛰️ [락스케일 즉발] 승점 +8점! 대상 플레이어의 땅 계열 카드 1장과 이 카드를 교환합니다.`);
+                openTargetPlayerModal(card);
+
             } else {
                 logMessage(`   ↳ [정보] 이 카드는 즉발(Instant) 점수 효과가 없습니다.`);
-            } 
+            }
 
             // 전광판 리프레시
             const scoreElement = document.getElementById('my-score');

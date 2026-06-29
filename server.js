@@ -73,6 +73,61 @@ function generateSnakeDraftSequence(numPlayers) {
     return [...forward, ...forward.slice().reverse()];
 }
 
+// ⚗️ [아티팩츠 확장] 유물 타일 11종 정의 (그룹 1~4)
+const ARTIFACT_TILES = [
+    { id: 'grimoire', nameKo: '토트의 고서',  group: 1, type: 'action',     emoji: '📖', desc: '보유 마법석 중 최대 2개를 각 1단계 승급' },
+    { id: 'helm',     nameKo: '하데스의 투구', group: 1, type: 'action',     emoji: '⛑️', desc: '더미에서 1장 포획 + 영역토큰 1단계 또는 6원 1개 획득' },
+    { id: 'jewel',    nameKo: '쿠쿨칸의 보석', group: 1, type: 'continuous', emoji: '💎', desc: '카드 판매 직후 1원 내면 그 카드를 손에 넣음 (1회성 옵션)' },
+    { id: 'seal',     nameKo: '제왕의 인장',   group: 1, type: 'action',     emoji: '🔏', desc: '자기 영역 카드 1장 버리기 → 드래곤 계열이면 3원 1개 획득' },
+    { id: 'philo',    nameKo: '현자의 돌',     group: 1, type: 'instant',    emoji: '🪨', desc: '포획한 카드 중 1장 손에 추가, 다른 1장 버리고 6원 획득 가능' },
+    { id: 'ring',     nameKo: '소원의 반지',   group: 1, type: 'action',     emoji: '💍', desc: '자기 영역의 환기 효과 1개를 즉시 발동' },
+    { id: 'censer',   nameKo: '신비한 향로',   group: 2, type: 'action',     emoji: '🏺', desc: '3원 내고 영역토큰 1단계 상승 또는 더미에서 2장 포획' },
+    { id: 'ruyi',     nameKo: '여의봉',        group: 2, type: 'action',     emoji: '🪄', desc: '손에서 카드 2장 버리고 1원+1원+3원+6원 획득' },
+    { id: 'flute',    nameKo: '마술피리',      group: 2, type: 'instant',    emoji: '🎵', desc: '카드 1장 뽑기 또는 포획한 카드 전부 손에 넣기' },
+    { id: 'boots',    nameKo: '마법 장화',     group: 3, type: 'action',     emoji: '👢', desc: '카드 1장 더 공개하고 그중 1장 포획' },
+    { id: 'fleece',   nameKo: '황금 양털',     group: 4, type: 'action',     emoji: '🌿', desc: '1원 2개 획득 + (더미에서 1장 포획 또는 포획카드 1장을 손에 추가)' },
+];
+
+function setupArtifactSupply(numPlayers) {
+    const g1 = ARTIFACT_TILES.filter(t => t.group === 1).sort(() => Math.random() - 0.5).slice(0, 3);
+    const g2 = numPlayers >= 3 ? ARTIFACT_TILES.filter(t => t.group === 2) : [];
+    const g3 = numPlayers >= 3 ? ARTIFACT_TILES.filter(t => t.group === 3) : [];
+    const g4 = numPlayers >= 4 ? ARTIFACT_TILES.filter(t => t.group === 4) : [];
+    return [...g1, ...g2, ...g3, ...g4].map(t => ({ ...t, claimedBy: null }));
+}
+
+function startArtifactSelectionPhase(roomID) {
+    const room = activeRooms[roomID];
+    if (!room) return;
+    room.currentServerPhase = 'ARTIFACT_SELECT';
+    room.currentArtifactSelectorIdx = 0;
+    const selector = room.turnSequence[0];
+    const lastId = (room.lastRoundArtifactByPlayer || {})[selector.nickname];
+    io.to(roomID).emit('artifactSelectionStart', {
+        artifactSupply: room.artifactSupply,
+        currentSelectorID: selector.id,
+        currentSelectorNickname: selector.nickname,
+        lastRoundRestrictions: room.lastRoundArtifactByPlayer || {},
+        logMessage: `⚗️ [유물 선택] ${selector.nickname}님, 유물 타일을 선택하세요! (직전 라운드 선택: ${lastId ? ARTIFACT_TILES.find(t=>t.id===lastId)?.nameKo || lastId : '없음'})`
+    });
+}
+
+function finishArtifactSelectionPhase(roomID) {
+    const room = activeRooms[roomID];
+    if (!room) return;
+    room.currentTurnOwnerIndex = 0;
+    const firstActionPlayer = room.turnSequence[0];
+    io.to(roomID).emit('draftPhaseEnded', {
+        marketCards: room.marketCards,
+        firstActionPlayerID: firstActionPlayer.id,
+        firstActionPlayerNickname: firstActionPlayer.nickname,
+        logMessage: `⚗️ 유물 선택 완료! 액션 단계로 넘어갑니다.`,
+        playerArtifacts: room.artifactSupply.filter(a => a.claimedBy)
+    });
+    room.currentServerPhase = 'ACTION';
+    startPhaseTimer(roomID, 'ACTION');
+}
+
 // ⏰ [강제 마감 - 드래프트 인당] 현재 픽이 끝나면(찜 완료 or 60초 만료 or 완료 버튼) 호출된다.
 // 6픽을 다 소진하면 액션 단계로 전환, 아니면 다음 픽 플레이어에게 새 60초 타이머를 시작한다.
 function forceEndCurrentPlayerDraftTurn(roomID) {
@@ -108,14 +163,19 @@ function forceEndCurrentPlayerDraftTurn(roomID) {
     const snakeSeq = room.snakeDraftSequence || generateSnakeDraftSequence(room.turnSequence.length);
     if (room.currentDraftStep >= snakeSeq.length) {
         room.currentTurnOwnerIndex = 0;
-        const firstActionPlayer = room.turnSequence[0];
-        io.to(roomID).emit('draftPhaseEnded', {
-            marketCards: room.marketCards,
-            firstActionPlayerID: firstActionPlayer.id,
-            firstActionPlayerNickname: firstActionPlayer.nickname,
-            logMessage: `🎲 모든 플레이어의 드래프트가 완료되었습니다. 액션 단계로 넘어갑니다!`
-        });
-        startPhaseTimer(roomID, 'ACTION');
+        // 아티팩츠 확장이 활성화된 경우 유물 선택 페이즈로 이동
+        if (room.expansions && room.expansions.artifacts && room.artifactSupply && room.artifactSupply.length > 0) {
+            startArtifactSelectionPhase(roomID);
+        } else {
+            const firstActionPlayer = room.turnSequence[0];
+            io.to(roomID).emit('draftPhaseEnded', {
+                marketCards: room.marketCards,
+                firstActionPlayerID: firstActionPlayer.id,
+                firstActionPlayerNickname: firstActionPlayer.nickname,
+                logMessage: `🎲 모든 플레이어의 드래프트가 완료되었습니다. 액션 단계로 넘어갑니다!`
+            });
+            startPhaseTimer(roomID, 'ACTION');
+        }
     } else {
         const nextOwnerIdx = snakeSeq[room.currentDraftStep];
         room.currentTurnOwnerIndex = nextOwnerIdx;
@@ -320,8 +380,16 @@ function finishRefreshPhaseAndContinue(roomID) {
     const scoresSnapshot = getRoundEndScores(room);
     room.finalScoresThisRound = {};
 
-    const reachedScoreLimit = scoresSnapshot.some(p => p.score >= 60);
+    // 아티팩츠 확장 활성 시 종료 점수 80점, 기본 60점
+    const winScore = (room.expansions && room.expansions.artifacts) ? 80 : 60;
+    const reachedScoreLimit = scoresSnapshot.some(p => p.score >= winScore);
     const isLastRound = room.currentRound >= 10;
+
+    // 환기 단계 끝 — 유물 타일 공급처 복귀 (마커 정보는 lastRoundArtifactByPlayer에 유지)
+    if (room.artifactSupply) {
+        room.artifactSupply.forEach(a => { a.claimedBy = null; });
+        io.to(roomID).emit('artifactsReturned', { artifactSupply: room.artifactSupply });
+    }
 
     if (reachedScoreLimit || isLastRound) {
         endGame(roomID, scoresSnapshot);
@@ -452,10 +520,48 @@ async function initializeCardDatabase() {
             { id: 507, name: "에어리스", type: "🐉 INSTANT", cost: 9, timing: "instant", summary: "즉발: 내 다른 카드 1장 손패 회수 + 그 카드 비용만큼 승점 획득", effect: { action: "aeris" } },
             { id: 508, name: "스코치", type: "🐉 INSTANT", cost: 9, timing: "instant", summary: "즉발: 내 전장에 놓인 다른 아군의 즉발 효과 1개를 그대로 복사", effect: { action: "scorch" } },
             { id: 509, name: "윌로우", type: "🐉 INSTANT", cost: 10, timing: "instant", summary: "즉발: 🔴,🔵,🟣 각 1개씩 충전 + 승점 3점 + 카드 1장 드로우", effect: { action: "willow" } },
-            { id: 510, name: "이터니티", type: "🐉 INSTANT", cost: 12, timing: "instant", summary: "즉발: 전장의 내 카드 속성 계열 종류마다 승점 +4점 피니시", effect: { action: "eternity" } }
+            { id: 510, name: "이터니티", type: "🐉 INSTANT", cost: 12, timing: "instant", summary: "즉발: 전장의 내 카드 속성 계열 종류마다 승점 +4점 피니시", effect: { action: "eternity" } },
+
+            // ================== 🔥 불 속성 확장 6장 (601~606) ==================
+            { id: 601, name: "불쥐",       type: "🔥 INSTANT",         cost: 1, timing: "instant", summary: "즉발: 소환된 자신의 카드 중 비용 3 이하 1장마다 1점", effect: { action: "fire_rat" } },
+            { id: 602, name: "잿불",       type: "🔥 PASSIVE",         cost: 1, timing: "passive", summary: "지속: 카드 제거 행동으로 내 카드 버릴 때, 버린 더미 대신 손패로 귀환 + 라운드 수만큼 점수 획득", effect: { action: "embers" } },
+            { id: 603, name: "불개",       type: "🔥 REFRESH",         cost: 2, timing: "refresh", summary: "환기: 보유 마법석 4개 이상이면 2점 또는 1원 3개 획득", effect: { action: "fire_dog" } },
+            { id: 604, name: "불보라",     type: "🔥 INSTANT / PASSIVE", cost: 2, timing: "both",  summary: "(즉발) 불 카드 2장마다 1점 / (지속) 마법석 4개 이상이면 즉시 귀환", effect: { action: "firestorm" } },
+            { id: 605, name: "헤파이스토스", type: "🔥 REFRESH",       cost: 3, timing: "refresh", summary: "환기: [3원/1원×3/2점] 중 1가지 포기 → 나머지 2가지 획득", effect: { action: "hephaestus" } },
+            { id: 606, name: "벨페고르",   type: "🔥 INSTANT / PASSIVE", cost: 4, timing: "both",  summary: "(즉발) 1원 획득 / (지속) 불 카드 소환 비용 1원으로 고정", effect: { action: "belphegor" } },
+
+            // ================== 💧 물 속성 확장 6장 (607~612) ==================
+            { id: 607, name: "타와레트",   type: "💧 INSTANT",         cost: 0, timing: "instant", summary: "즉발: 손에서 원하는 만큼 버리고, 1장당 3원 획득", effect: { action: "taweret" } },
+            { id: 608, name: "멜루진",     type: "💧 INSTANT",         cost: 3, timing: "instant", summary: "즉발: 손에서 최대 3장 버리고, 1장당 4원 획득", effect: { action: "melusine" } },
+            { id: 609, name: "탈라사",     type: "💧 INSTANT / PASSIVE", cost: 4, timing: "both",  summary: "(즉발) 물 계열 1장마다 1점 / (지속) 3원 획득 시 즉시 귀환", effect: { action: "thalassa" } },
+            { id: 610, name: "세이렌",     type: "💧 REFRESH",         cost: 5, timing: "refresh", summary: "환기: 손에서 1장 버리면 3원 + 2점 획득", effect: { action: "siren" } },
+            { id: 611, name: "크라켄",     type: "💧 INSTANT",         cost: 5, timing: "instant", summary: "즉발: 계열 선택, 그 계열 소환 카드 1장마다 2점 획득", effect: { action: "kraken" } },
+            { id: 612, name: "아쿨트",     type: "💧 INSTANT",         cost: 6, timing: "instant", summary: "즉발: 공용 버린 더미의 드래곤 카드 1장을 무료 소환", effect: { action: "akult" } },
+
+            // ================== ⛰️ 땅 속성 확장 6장 (613~618) ==================
+            { id: 613, name: "두두리",     type: "⛰️ INSTANT / REFRESH", cost: 0, timing: "both", summary: "(즉발) 1점 잃고 마법석 1개 승급 / (환기) 귀환", effect: { action: "duduri" } },
+            { id: 614, name: "두두리 대왕", type: "⛰️ PASSIVE",        cost: 3, timing: "passive", summary: "지속: 카드 판매 시 얻는 마법석 중 1개 승급", effect: { action: "duduri_king" } },
+            { id: 615, name: "맨드레이크", type: "⛰️ INSTANT / REFRESH", cost: 6, timing: "both", summary: "(즉발) 3점 획득 / (환기) 버리거나 2점 잃기 선택 → 6원 획득", effect: { action: "mandrake" } },
+            { id: 616, name: "아누비스",   type: "⛰️ INSTANT",         cost: 6, timing: "instant", summary: "즉발: 자기 다른 소환 카드 1장 버리고, 비용만큼 점수 획득", effect: { action: "anubis" } },
+            { id: 617, name: "토템",       type: "⛰️ PASSIVE",         cost: 6, timing: "passive", summary: "지속: 자기 다른 소환 카드 버릴 때마다 6원 누적 획득", effect: { action: "totem" } },
+            { id: 618, name: "웬디고",     type: "⛰️ INSTANT / PASSIVE", cost: 7, timing: "both",  summary: "(즉발) 땅 계열 1장마다 2점 / (지속) 점수 1점이라도 잃으면 즉시 귀환", effect: { action: "wendigo" } },
+
+            // ================== 🍃 바람 속성 확장 6장 (619~624) ==================
+            { id: 619, name: "날다람쥐",   type: "🍃 INSTANT / REFRESH", cost: 4, timing: "both", summary: "(즉발) 카드 1장 뽑기 / (환기) 카드 1장 뽑고, 손의 카드 1장을 더미 맨 위로", effect: { action: "flying_squirrel" } },
+            { id: 620, name: "밴시",       type: "🍃 INSTANT / PASSIVE", cost: 4, timing: "both",  summary: "(즉발) 소환 카드 계열 종류마다 1점 / (지속) 카드 뽑으면 즉시 귀환", effect: { action: "banshee" } },
+            { id: 621, name: "로크",       type: "🍃 REFRESH",          cost: 6, timing: "refresh", summary: "환기: 계열 선택, 그 계열 소환 카드 1장마다 1점 획득", effect: { action: "roc" } },
+            { id: 622, name: "호루스",     type: "🍃 INSTANT",          cost: 7, timing: "instant", summary: "즉발: 카드 1장 무료 소환 + 비용만큼 점수 획득", effect: { action: "horus" } },
+            { id: 623, name: "로키",       type: "🍃 PASSIVE / REFRESH", cost: 7, timing: "passive", summary: "(지속) 자기 차례마다 이 카드를 원하는 계열로 취급 / (환기) 지속 효과 카드 1장마다 1점", effect: { action: "loki" } },
+            { id: 624, name: "안주",       type: "🍃 INSTANT",          cost: 9, timing: "instant", summary: "즉발: 손의 모든 카드 잠시 공개, 계열 종류마다 3점", effect: { action: "anzu" } },
+
+            // ================== 🐉 드래곤 확장 4장 (625~628) ==================
+            { id: 625, name: "딥다이브",   type: "🐉 INSTANT",          cost: 7, timing: "instant", summary: "즉발: 7점 획득, 대상 플레이어의 물 계열 카드 1장과 이 카드를 교환", effect: { action: "deepdive" } },
+            { id: 626, name: "파이로",     type: "🐉 INSTANT",          cost: 7, timing: "instant", summary: "즉발: 7점 획득, 대상 플레이어의 불 계열 카드 1장과 이 카드를 교환", effect: { action: "pyro" } },
+            { id: 627, name: "위스퍼",     type: "🐉 INSTANT",          cost: 8, timing: "instant", summary: "즉발: 8점 획득, 대상 플레이어의 바람 계열 카드 1장과 이 카드를 교환", effect: { action: "whisper" } },
+            { id: 628, name: "락스케일",   type: "🐉 INSTANT",          cost: 8, timing: "instant", summary: "즉발: 8점 획득, 대상 플레이어의 땅 계열 카드 1장과 이 카드를 교환", effect: { action: "rockscale" } }
         ];
         await Card.insertMany(realCards);
-        console.log(`✅ [70장 대완성] 전 속성 데이터 베이스 구축 완료!`);
+        console.log(`✅ [98장 완성] 기본 70장 + 아티팩츠 확장 28장 데이터 베이스 구축 완료!`);
     } catch (err) {
         console.error("❌ 카드 DB 주입 실패:", err);
     }
@@ -629,10 +735,18 @@ io.on('connection', (socket) => {
         room.markerPicks = {};
         room.currentDraftStep = 0;
         room.snakeDraftSequence = generateSnakeDraftSequence(room.players.length);
+        room.lastRoundArtifactByPlayer = {};
+
+        // 아티팩츠 확장 활성 시 유물 공급 설정; 비활성 시 확장 카드(ID≥600) 제거
+        if (room.expansions && room.expansions.artifacts) {
+            room.artifactSupply = setupArtifactSupply(room.players.length);
+        } else {
+            room.gameMainDeck = room.gameMainDeck.filter(c => c.id < 600);
+        }
 
         // Deal correct number of market cards for this player count
         const initMarketSize = room.players.length * 2;
-        room.gameMainDeck = [...room.marketCards, ...room.gameMainDeck];
+        room.gameMainDeck = [...room.marketCards.filter(c => !room.expansions?.artifacts ? c.id < 600 : true), ...room.gameMainDeck];
         room.marketCards = [];
         for (let i = 0; i < initMarketSize; i++) {
             if (room.gameMainDeck.length > 0) room.marketCards.push(room.gameMainDeck.shift());
@@ -641,7 +755,9 @@ io.on('connection', (socket) => {
         io.to(roomID).emit('gameStartSignal', {
             finalPlayers: room.players,
             sharedMarketCards: room.marketCards,
-            turnSequence: finalTurnOrder
+            turnSequence: finalTurnOrder,
+            expansions: room.expansions || {},
+            artifactSupply: room.artifactSupply || []
         });
 
         const firstDraftPlayer = finalTurnOrder[0];
@@ -653,6 +769,87 @@ io.on('connection', (socket) => {
 
         startPhaseTimer(roomID, 'DRAFT');
     }
+
+    // ⚙️ [아티팩츠 확장 토글] 방장만 변경 가능
+    socket.on('setExpansion', (data) => {
+        const { roomID, artifacts } = data;
+        const room = activeRooms[roomID];
+        if (!room || room.leaderID !== socket.id) return;
+        if (!room.expansions) room.expansions = {};
+        room.expansions.artifacts = !!artifacts;
+        io.to(roomID).emit('expansionUpdated', { artifacts: room.expansions.artifacts });
+    });
+
+    // ⚗️ [유물 선택] 사냥 단계 후 각 플레이어가 유물 타일 1개 선택
+    socket.on('action_pickArtifact', (data) => {
+        const { roomID, artifactId } = data;
+        const room = activeRooms[roomID];
+        if (!room || room.currentServerPhase !== 'ARTIFACT_SELECT') return;
+
+        const selector = room.turnSequence[room.currentArtifactSelectorIdx];
+        if (!selector || selector.id !== socket.id) return;
+
+        const artifact = room.artifactSupply.find(a => a.id === artifactId);
+        if (!artifact || artifact.claimedBy) return;
+
+        // 직전 라운드 선택 제한 체크
+        const lastId = (room.lastRoundArtifactByPlayer || {})[selector.nickname];
+        if (lastId && lastId === artifactId && room.currentRound > 1) return;
+
+        artifact.claimedBy = selector.nickname;
+        if (!room.lastRoundArtifactByPlayer) room.lastRoundArtifactByPlayer = {};
+        room.lastRoundArtifactByPlayer[selector.nickname] = artifactId;
+
+        io.to(roomID).emit('artifactPickUpdate', {
+            artifactId,
+            pickerNickname: selector.nickname,
+            pickerId: selector.id,
+            artifact
+        });
+
+        // 즉발 유물(현자의 돌, 마술피리)은 선택 즉시 효과 발동 안내 — 클라이언트가 처리
+        if (artifact.type === 'instant') {
+            io.to(selector.id).emit('triggerArtifactInstant', { artifact, ownerNickname: selector.nickname });
+        }
+
+        room.currentArtifactSelectorIdx++;
+        if (room.currentArtifactSelectorIdx >= room.turnSequence.length) {
+            finishArtifactSelectionPhase(roomID);
+        } else {
+            const next = room.turnSequence[room.currentArtifactSelectorIdx];
+            const lastIdNext = (room.lastRoundArtifactByPlayer || {})[next.nickname];
+            io.to(roomID).emit('artifactSelectionNext', {
+                currentSelectorID: next.id,
+                currentSelectorNickname: next.nickname,
+                lastRoundRestrictions: room.lastRoundArtifactByPlayer,
+                logMessage: `⚗️ [유물 선택] ${next.nickname}님, 유물 타일을 선택하세요! (직전 제한: ${lastIdNext ? ARTIFACT_TILES.find(t=>t.id===lastIdNext)?.nameKo || lastIdNext : '없음'})`
+            });
+        }
+    });
+
+    // ⚔️ [유물 행동 사용] 행동 단계 중 1회 유물 행동 능력 사용
+    socket.on('action_useArtifact', (data) => {
+        const { roomID, artifactId, ownerNickname } = data;
+        const room = activeRooms[roomID];
+        if (!room || room.currentServerPhase !== 'ACTION') return;
+
+        const artifact = room.artifactSupply && room.artifactSupply.find(a => a.id === artifactId && a.claimedBy === ownerNickname);
+        if (!artifact) return;
+
+        // 사용 완료 후 공급처 반환 (claimedBy null로 초기화)
+        artifact.claimedBy = null;
+        io.to(roomID).emit('artifactUsed', { artifactId, ownerNickname, artifact });
+        console.log(`⚔️ [유물 사용] [${roomID}] ${ownerNickname} → [${artifact.nameKo}] 사용 후 반환`);
+    });
+
+    // 🌊 [아쿨트] 공용 버린 더미의 드래곤 카드 목록을 요청자에게 전송
+    socket.on('action_akultFreeSummon', (data) => {
+        const { roomID } = data;
+        const room = activeRooms[roomID];
+        if (!room) return;
+        const dragonCards = (room.discardPile || []).filter(c => c.type && c.type.includes('🐉'));
+        socket.emit('akultDragonList', { cards: dragonCards });
+    });
 
     // 🚀 [게임 대전 개시] - 다이스 대신 마커 선택 단계를 먼저 연다.
     socket.on('requestStartGame', (data) => {
@@ -989,7 +1186,7 @@ io.on('connection', (socket) => {
     // 있으므로 여기서 직접 한 장을 꺼내, 요청한 소켓에게만 개인적으로 돌려준다(다른 플레이어에게는
     // 비공개).
     socket.on('requestDrawCard', (data) => {
-        const { roomID, sourceCardName } = data;
+        const { roomID, sourceCardName, destinationType } = data;
         const room = activeRooms[roomID];
         if (!room) return;
 
@@ -1001,12 +1198,12 @@ io.on('connection', (socket) => {
         }
 
         if (room.gameMainDeck.length < 1) {
-            socket.emit('drawCardResult', { success: false, sourceCardName });
+            socket.emit('drawCardResult', { success: false, sourceCardName, destinationType });
             return;
         }
 
         const drawnCard = room.gameMainDeck.shift();
-        socket.emit('drawCardResult', { success: true, card: drawnCard, sourceCardName });
+        socket.emit('drawCardResult', { success: true, card: drawnCard, sourceCardName, destinationType });
     });
 
     // 🚪 [대기실 이전 버튼] 소켓은 유지하면서 방만 나가기
