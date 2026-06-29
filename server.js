@@ -79,6 +79,29 @@ function forceEndCurrentPlayerDraftTurn(roomID) {
     const room = activeRooms[roomID];
     if (!room || room.turnSequence.length === 0) return;
 
+    // 현재 차례 플레이어가 아무 카드도 찜하지 않은 경우 랜덤 자동 배정
+    const currentPlayer = room.turnSequence[room.currentTurnOwnerIndex];
+    if (currentPlayer) {
+        const hasClaim = room.marketCards.some(c => c.claimedBy === currentPlayer.nickname);
+        if (!hasClaim) {
+            const available = room.marketCards.filter(c => !c.claimedBy);
+            if (available.length > 0) {
+                const picked = available[Math.floor(Math.random() * available.length)];
+                picked.claimedBy = currentPlayer.nickname;
+                if (typeof room.markersPlaced === 'undefined') room.markersPlaced = 0;
+                room.markersPlaced++;
+                console.log(`🎲 [자동 찜] [${roomID}] 시간 초과 → ${currentPlayer.nickname}에게 [${picked.name}] 자동 배정`);
+                io.to(roomID).emit('sync_marketUpdate', {
+                    marketCards: room.marketCards,
+                    pickerNickname: currentPlayer.nickname,
+                    cardName: picked.name,
+                    serverMarkersPlaced: room.markersPlaced,
+                    autoAssigned: true
+                });
+            }
+        }
+    }
+
     if (typeof room.currentDraftStep === 'undefined') room.currentDraftStep = 0;
     room.currentDraftStep++;
 

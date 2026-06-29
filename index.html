@@ -648,7 +648,7 @@
         /* 🃏 중앙 드래프트 및 하단 개인판 최적화 */
         .center-board { flex: 1; min-height: 0; background: rgba(8, 9, 15, 0.4); border: 1px dashed rgba(229, 184, 66, 0.15); border-radius: 8px; display: flex; flex-direction: row; padding: 15px; gap: 15px; box-sizing: border-box; }
         .market-grid-zone { flex: 1.2; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
-        .market-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 140px); grid-template-rows: repeat(2, 1fr); gap: 10px; justify-content: center; min-height: 0; }
+        .market-grid { flex: 1; display: grid; grid-template-rows: repeat(2, 1fr); gap: 10px; justify-content: center; min-height: 0; }
         .market-grid .game-card { width: 100%; height: 100%; min-height: 150px; }
 
         /* 📌 [내 마커 트레이] 마켓 그리드 바로 아래 — 드래그해서 카드 위에 올리면 찜이 됨 */
@@ -1675,6 +1675,8 @@
             // 2. 로그 중계
             if (data.logMessage) {
                 logMessage(data.logMessage);
+            } else if (data.autoAssigned && data.pickerNickname && data.cardName) {
+                logMessage(`⏰ [시간 초과] ${data.pickerNickname}님에게 [${data.cardName}]이(가) 자동 배정되었습니다.`);
             } else if (data.pickerNickname && data.cardName) {
                 logMessage(`🎯 ${data.pickerNickname}님이 [${data.cardName}]에 마커를 놓았습니다.`);
             }
@@ -1785,8 +1787,14 @@
 // 🃏 [최종 저격] 드래프트 도중 실시간 암전 및 노란 마커 강제 출력 함수
         function updateMarketUI() {
             const marketZone = document.querySelector('.market-grid');
-            if (!marketZone) return; 
-    
+            if (!marketZone) return;
+
+            // 카드 수에 따라 그리드 컬럼 동적 설정 (2인=2열/4장, 3인=3열/6장, 4인=4열/8장)
+            const cardCount = marketCards.length;
+            const cols = cardCount <= 4 ? 2 : cardCount <= 6 ? 3 : 4;
+            const colWidth = cols <= 3 ? 140 : 115;
+            marketZone.style.gridTemplateColumns = `repeat(${cols}, ${colWidth}px)`;
+
             marketZone.innerHTML = ''; // 마켓 초기화
     
             marketCards.forEach(card => {
