@@ -464,22 +464,24 @@
         /* 모달 컨테이너 */
         .howto-container {
             position: relative;
-            width: 520px; max-width: 96vw;
-            max-height: 92vh; overflow-y: auto;
+            width: 520px; max-width: 92vw;
+            min-height: 560px;
+            max-height: 94vh; overflow-y: auto;
             background-image: url('landing-assets/parchment.png');
             background-size: 100% 100%; background-repeat: no-repeat;
-            padding: 52px 48px 42px;
+            padding: 56px 44px 48px;
             box-sizing: border-box;
             box-shadow: 0 30px 70px rgba(0,0,0,0.65);
             animation: fadeInUp 0.35s ease-out;
+            display: flex; flex-direction: column;
         }
         .howto-container::-webkit-scrollbar { display: none; }
 
         /* 닫기 버튼 */
         .howto-close-btn {
-            position: absolute; top: 14px; right: 16px;
+            position: absolute; top: 16px; right: 18px;
             background: none; border: none; cursor: pointer;
-            color: #7a5c2e; font-size: 1.3rem; line-height: 1;
+            color: #7a5c2e; font-size: 1.4rem; line-height: 1;
             transition: color 0.2s, transform 0.15s;
             font-family: sans-serif;
         }
@@ -489,67 +491,77 @@
         .howto-slider-viewport {
             overflow: hidden;
             width: 100%;
+            flex: 1;
         }
         .howto-slider-track {
             display: flex;
             transition: transform 0.4s cubic-bezier(0.25,1,0.5,1);
             will-change: transform;
+            width: 100%;
         }
         /* 개별 슬라이드 */
         .howto-slide {
-            min-width: 100%; box-sizing: border-box;
+            min-width: 100%; width: 100%; box-sizing: border-box;
             display: flex; flex-direction: column;
             align-items: center; text-align: center;
-            gap: 10px;
-            padding: 0 4px;
+            gap: 12px;
+            padding: 0;
+            overflow: hidden;
         }
         .howto-slide-art {
             width: 100%; display: flex; align-items: center; justify-content: center;
-            height: 80px; gap: 10px;
+            height: 88px; gap: 10px; flex-shrink: 0;
         }
         .howto-slide-art img { max-height: 72px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
         .howto-slide-title {
             font-family: 'Cinzel', 'Noto Sans KR', sans-serif;
-            font-size: 1.05rem; font-weight: 700; letter-spacing: 1.5px;
+            font-size: 1.08rem; font-weight: 700; letter-spacing: 1.5px;
             color: #c8860a;
             text-shadow: 0 1px 2px rgba(0,0,0,0.08);
             line-height: 1.3;
+            width: 100%;
         }
         .howto-slide-step {
             font-family: 'Noto Sans KR', sans-serif;
             font-size: 0.7rem; font-weight: 700; letter-spacing: 2px;
-            color: #a07838; text-transform: uppercase; margin-bottom: -6px;
+            color: #a07838; text-transform: uppercase; margin-bottom: -4px;
+            width: 100%;
         }
         .howto-slide-desc {
             font-family: 'Noto Sans KR', sans-serif;
-            font-size: 0.83rem; color: #5c4322; line-height: 1.7;
-            word-break: keep-all; text-align: left;
+            font-size: 0.84rem; color: #5c4322; line-height: 1.75;
+            word-break: break-word; overflow-wrap: break-word;
+            text-align: left; width: 100%; box-sizing: border-box;
         }
 
         /* 내비게이션 */
         .howto-nav {
             display: flex; align-items: center; justify-content: space-between;
-            margin-top: 14px; gap: 8px;
+            margin-top: 20px; gap: 8px; flex-shrink: 0;
         }
         .howto-nav-btn {
-            background: none; border: 1px solid rgba(120,90,50,0.35);
-            color: #7a5c2e; font-size: 1rem; width: 34px; height: 34px;
-            border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            background: rgba(200,134,10,0.1);
+            border: 2px solid rgba(120,90,50,0.55);
+            color: #7a4e1a; font-size: 1.5rem; font-weight: 700;
+            width: 46px; height: 46px;
+            border-radius: 50%; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
             transition: all 0.2s;
+            line-height: 1;
         }
-        .howto-nav-btn:hover { background: rgba(212,163,39,0.12); border-color: #c8860a; color: #c8860a; }
-        .howto-nav-btn:disabled { opacity: 0.3; cursor: default; }
+        .howto-nav-btn:hover { background: rgba(212,163,39,0.22); border-color: #c8860a; color: #9a5c08; box-shadow: 0 0 10px rgba(200,134,10,0.3); }
+        .howto-nav-btn:disabled { opacity: 0.2; cursor: default; background: transparent; box-shadow: none; }
 
         /* 인디케이터 */
         .howto-indicators {
-            display: flex; gap: 7px; align-items: center;
+            display: flex; gap: 8px; align-items: center;
         }
         .howto-dot {
-            width: 8px; height: 8px; border-radius: 50%;
+            width: 9px; height: 9px; border-radius: 50%;
             background: rgba(120,90,50,0.25);
             cursor: pointer; transition: all 0.25s;
         }
-        .howto-dot.active { background: #c8860a; transform: scale(1.3); }
+        .howto-dot.active { background: #c8860a; transform: scale(1.35); }
         
         @keyframes rotateClockwise { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes fadeInDownFast { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
@@ -1053,13 +1065,11 @@
 
                     <!-- 슬라이드 4: 정령 모으기와 마법석 -->
                     <div class="howto-slide">
-                        <div class="howto-slide-art" style="gap:10px; flex-direction:column;">
-                            <div style="display:flex;gap:12px;align-items:center;justify-content:center;">
-                                <div style="width:26px;height:26px;border-radius:50%;background:radial-gradient(circle,#ff6b35,#c0392b);box-shadow:0 3px 10px rgba(255,80,0,0.5);"></div>
-                                <div style="width:26px;height:26px;border-radius:50%;background:radial-gradient(circle,#60a5fa,#1e40af);box-shadow:0 3px 10px rgba(59,130,246,0.5);"></div>
-                                <div style="width:26px;height:26px;border-radius:50%;background:radial-gradient(circle,#c084fc,#7c3aed);box-shadow:0 3px 10px rgba(192,132,252,0.5);"></div>
-                            </div>
-                            <img src="landing-assets/seal.png" alt="소환" style="max-height:30px; opacity:0.85;">
+                        <div class="howto-slide-art" style="gap:14px;">
+                            <div style="width:26px;height:26px;border-radius:50%;background:radial-gradient(circle,#ff6b35,#c0392b);box-shadow:0 3px 10px rgba(255,80,0,0.5);flex-shrink:0;"></div>
+                            <div style="width:26px;height:26px;border-radius:50%;background:radial-gradient(circle,#60a5fa,#1e40af);box-shadow:0 3px 10px rgba(59,130,246,0.5);flex-shrink:0;"></div>
+                            <div style="width:26px;height:26px;border-radius:50%;background:radial-gradient(circle,#c084fc,#7c3aed);box-shadow:0 3px 10px rgba(192,132,252,0.5);flex-shrink:0;"></div>
+                            <img src="landing-assets/seal.png" alt="소환" style="max-height:34px; opacity:0.85; flex-shrink:0;">
                         </div>
                         <div class="howto-slide-step">Step 4</div>
                         <div class="howto-slide-title">정령 모으기와 마법석</div>
