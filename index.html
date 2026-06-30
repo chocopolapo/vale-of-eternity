@@ -346,6 +346,7 @@
         .artifact-tile.artifact-restricted { opacity:0.5; cursor:not-allowed; border-color:rgba(255,100,100,0.3); }
         .artifact-tile.artifact-mine { border-color:#22c55e; box-shadow:0 0 15px rgba(34,197,94,0.4); }
         .artifact-emoji { font-size:1.6rem; display:block; margin-bottom:4px; }
+        .artifact-art-img { width:72px; height:72px; object-fit:cover; border-radius:6px; display:block; margin:0 auto 6px; }
         .artifact-name { font-size:0.72rem; font-weight:700; color:#c9a227; margin-bottom:4px; }
         .artifact-type-badge { font-size:0.62rem; padding:2px 6px; border-radius:10px; display:inline-block; }
         .artifact-type-action { background:rgba(96,165,250,0.15); color:#60a5fa; }
@@ -1642,6 +1643,8 @@
         });
 
         // ⚗️ 유물 선택 페이즈 핸들러
+        function getArtifactImgUrl(id) { return `artifacts/${id}.png`; }
+
         function renderArtifactChoices(supply, restrictions) {
             const row = document.getElementById('artifact-choice-row');
             if (!row) return;
@@ -1652,7 +1655,8 @@
                 const div = document.createElement('div');
                 div.className = 'artifact-tile' + (isTaken ? ' artifact-taken' : '') + (isRestricted ? ' artifact-restricted' : '');
                 div.title = a.desc || '';
-                div.innerHTML = `<span class="artifact-emoji">${a.emoji}</span><div class="artifact-name">${a.nameKo}</div><div class="artifact-type-badge artifact-type-${a.type}">${a.type === 'action' ? '행동' : a.type === 'instant' ? '즉발' : '지속'}</div>${isTaken ? `<div style="font-size:0.62rem; color:#64748b; margin-top:4px;">${a.claimedBy}</div>` : ''}${isRestricted ? `<div style="font-size:0.62rem; color:#f87171; margin-top:4px;">직전 선택 (불가)</div>` : ''}`;
+                const imgUrl = getArtifactImgUrl(a.id);
+                div.innerHTML = `<img class="artifact-art-img" src="${imgUrl}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" alt="${a.nameKo}"><span class="artifact-emoji" style="display:none">${a.emoji}</span><div class="artifact-name">${a.nameKo}</div><div class="artifact-type-badge artifact-type-${a.type}">${a.type === 'action' ? '행동' : a.type === 'instant' ? '즉발' : '지속'}</div>${isTaken ? `<div style="font-size:0.62rem; color:#64748b; margin-top:4px;">${a.claimedBy}</div>` : ''}${isRestricted ? `<div style="font-size:0.62rem; color:#f87171; margin-top:4px;">직전 선택 (불가)</div>` : ''}`;
                 if (!isTaken && !isRestricted) {
                     div.onclick = () => {
                         socket.emit('action_pickArtifact', { roomID: currentRoomID, artifactId: a.id });
@@ -2073,7 +2077,8 @@
                 const chip = document.createElement('div');
                 chip.className = 'artifact-supply-chip' + (a.claimedBy ? ' claimed' : '');
                 chip.title = a.desc || '';
-                chip.innerHTML = `${a.emoji} <span>${a.nameKo}</span>${a.claimedBy ? ` <span style="font-size:0.6rem; opacity:0.7;">(${a.claimedBy})</span>` : ''}`;
+                const chipImg = `<img src="${getArtifactImgUrl(a.id)}" onerror="this.style.display='none'" style="width:16px;height:16px;object-fit:cover;border-radius:3px;flex-shrink:0;" alt="">`;
+                chip.innerHTML = `${chipImg} <span>${a.nameKo}</span>${a.claimedBy ? ` <span style="font-size:0.6rem; opacity:0.7;">(${a.claimedBy})</span>` : ''}`;
                 list.appendChild(chip);
             });
         }
@@ -2086,7 +2091,8 @@
             if (!item || !nameEl) return;
             if (myArtifact) {
                 item.style.display = 'block';
-                nameEl.innerText = `${myArtifact.emoji} ${myArtifact.nameKo}`;
+                const aImgUrl = getArtifactImgUrl(myArtifact.id);
+                nameEl.innerHTML = `<img src="${aImgUrl}" onerror="this.style.display='none'" style="width:20px;height:20px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:4px;" alt=""> ${myArtifact.nameKo}`;
                 // 행동(action) 유물이고 아직 미사용이면 사용 버튼 표시
                 if (useBtn) useBtn.style.display = (myArtifact.type === 'action' && !myArtifactUsed && currentPhase === 'ACTION') ? 'inline-block' : 'none';
             } else {
