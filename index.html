@@ -1131,24 +1131,14 @@
                 <div class="info-item" id="territory-token-item" style="display:none;">🏰 영역+<span id="territory-token-value">0</span></div>
             </div>
 
-            <!-- ⚗️ 유물 공급 존 (아티팩츠 확장 활성 시에만 표시) -->
-            <div id="artifact-supply-zone" style="display:none; padding:6px 10px; background:rgba(201,162,39,0.06); border:1px solid rgba(201,162,39,0.2); border-radius:6px; margin-bottom:6px;">
-                <div style="font-size:0.65rem; color:#7a8ba5; letter-spacing:1px; margin-bottom:5px;">⚗️ ARTIFACT SUPPLY</div>
-                <div id="artifact-supply-list" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
-            </div>
 
             <div class="center-board">
                 <div class="market-grid-zone">
-                    <!-- ⚗️ 드래프트 뷰 네비게이션 (확장판 전용) -->
-                    <div id="draft-view-nav" style="display:none; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px;">
-                        <button id="draft-nav-prev" onclick="switchDraftView(-1)" style="background:rgba(229,184,66,0.12); border:1.5px solid rgba(229,184,66,0.4); color:#e5b842; border-radius:6px; padding:4px 10px; font-size:1rem; cursor:pointer; transition:all 0.15s;">&#9664;</button>
-                        <div id="draft-view-title" style="font-size:0.7rem; font-weight:700; letter-spacing:2px; color:#e5b842; text-align:center; flex:1;">⚗️ ARTIFACT DRAFT</div>
-                        <button id="draft-nav-next" onclick="switchDraftView(1)" style="background:rgba(229,184,66,0.12); border:1.5px solid rgba(229,184,66,0.4); color:#e5b842; border-radius:6px; padding:4px 10px; font-size:1rem; cursor:pointer; transition:all 0.15s;">&#9654;</button>
-                    </div>
                     <div class="board-title" id="draft-title-normal">DRAFT MARKET</div>
 
                     <!-- ⚗️ 뷰 1: 유물 드래프트 마켓 (확장판, 드래프트 초반) -->
                     <div id="artifact-draft-view" style="display:none;">
+                        <div id="draft-view-title" style="font-size:0.7rem; font-weight:700; letter-spacing:2px; color:#e5b842; text-align:center; margin-bottom:8px;">⚗️ ARTIFACT DRAFT</div>
                         <div id="artifact-draft-status" style="font-size:0.78rem; color:#94a3b8; margin-bottom:10px; text-align:center; min-height:1.2em;"></div>
                         <div id="artifact-draft-grid" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; min-height:140px;"></div>
                         <!-- 유물 전용 마커 트레이 -->
@@ -1156,6 +1146,10 @@
                             <span class="marker-tray-label">ARTIFACT MARKER</span>
                             <div class="marker-slot" id="artifact-marker-slot" draggable="true" ondragstart="onArtifactMarkerDragStart(event)" style="background:radial-gradient(circle,#e5b842 0%,#92610a 100%); border-color:rgba(229,184,66,0.6);">🔮</div>
                             <span class="marker-tray-hint">마커를 유물 위로 드래그하면 찜이 돼요</span>
+                        </div>
+                        <!-- 카드 마켓으로 이동하는 화살표 -->
+                        <div id="draft-view-nav" style="display:flex; align-items:center; justify-content:center; gap:10px; margin-top:10px;">
+                            <button onclick="switchDraftView(1)" style="background:rgba(229,184,66,0.08); border:1.5px solid rgba(229,184,66,0.35); color:#e5b842; border-radius:6px; padding:4px 16px; font-size:0.75rem; font-family:'Noto Sans KR',sans-serif; cursor:pointer; letter-spacing:1px;">&#9664; 카드 마켓 보기 &#9654;</button>
                         </div>
                     </div>
 
@@ -1727,22 +1721,15 @@
             currentDraftView = view;
             const artifactView = document.getElementById('artifact-draft-view');
             const cardView = document.getElementById('card-draft-view');
-            const nav = document.getElementById('draft-view-nav');
             const normalTitle = document.getElementById('draft-title-normal');
-            const viewTitle = document.getElementById('draft-view-title');
             if (view === 'artifact') {
                 if (artifactView) artifactView.style.display = 'block';
                 if (cardView) cardView.style.display = 'none';
-                if (nav) nav.style.display = 'flex';
                 if (normalTitle) normalTitle.style.display = 'none';
-                if (viewTitle) viewTitle.innerText = '⚗️ ARTIFACT DRAFT';
             } else {
                 if (artifactView) artifactView.style.display = 'none';
                 if (cardView) cardView.style.display = 'block';
-                if (nav && expansionEnabled) nav.style.display = 'flex';
-                else if (nav) nav.style.display = 'none';
-                if (normalTitle) normalTitle.style.display = expansionEnabled ? 'none' : 'block';
-                if (viewTitle) viewTitle.innerText = '📜 CARD DRAFT';
+                if (normalTitle) normalTitle.style.display = 'block';
             }
         }
         function switchDraftView(dir) {
@@ -2004,12 +1991,6 @@
                 expansionEnabled = !!data.expansions.artifacts;
                 if (expansionEnabled) {
                     currentArtifactSupply = data.artifactSupply || [];
-                    // 네비 표시 설정 (초기에는 숨김 - artifactDraftStart에서 열림)
-                    const nav = document.getElementById('draft-view-nav');
-                    const normalTitle = document.getElementById('draft-title-normal');
-                    if (nav) nav.style.display = 'none';
-                    if (normalTitle) normalTitle.style.display = 'none';
-                    updateArtifactSupplyUI();
                     logMessage(`⚗️ [아티팩츠 확장] 활성! 확장 카드 28장 + 유물 타일 포함. 종료 점수: 80점`);
                 }
             }
@@ -2163,22 +2144,7 @@
         }
 
         // 유물 공급 UI 렌더링
-        function updateArtifactSupplyUI() {
-            const zone = document.getElementById('artifact-supply-zone');
-            const list = document.getElementById('artifact-supply-list');
-            if (!zone || !list) return;
-            if (!expansionEnabled || currentArtifactSupply.length === 0) { zone.style.display = 'none'; return; }
-            zone.style.display = 'block';
-            list.innerHTML = '';
-            currentArtifactSupply.forEach(a => {
-                const chip = document.createElement('div');
-                chip.className = 'artifact-supply-chip' + (a.claimedBy ? ' claimed' : '');
-                chip.title = a.desc || '';
-                const chipImg = `<img src="${getArtifactImgUrl(a.id)}" onerror="this.style.display='none'" style="width:16px;height:16px;object-fit:cover;border-radius:3px;flex-shrink:0;" alt="">`;
-                chip.innerHTML = `${chipImg} <span>${a.nameKo}</span>${a.claimedBy ? ` <span style="font-size:0.6rem; opacity:0.7;">(${a.claimedBy})</span>` : ''}`;
-                list.appendChild(chip);
-            });
-        }
+        function updateArtifactSupplyUI() { /* artifact supply zone removed */ }
 
         // 내 유물 표시 업데이트
         function updateMyArtifactUI() {
