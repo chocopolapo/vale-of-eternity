@@ -41,7 +41,7 @@ function shuffleDeckPreservingTengu(deck) {
 
 // ⏱️ [라운드 단계별 타이머] 찜(드래프트) 60초 / 액션 120초 / 환기 60초.
 // 시간이 다 되면 정상 흐름과 똑같은 "전원 완료" 처리 함수를 강제로 호출해 다음 단계로 넘긴다.
-const PHASE_DURATIONS = { DRAFT: 60000, ACTION: 120000, REFRESH: 60000 };
+const PHASE_DURATIONS = { ARTIFACT_DRAFT: 30000, DRAFT: 60000, ACTION: 120000, REFRESH: 60000 };
 
 function startPhaseTimer(roomID, phase) {
     const room = activeRooms[roomID];
@@ -60,7 +60,8 @@ function startPhaseTimer(roomID, phase) {
     room.phaseTimerHandle = setTimeout(() => {
         const r = activeRooms[roomID];
         if (!r || r.currentServerPhase !== phase) return;
-        if (phase === 'DRAFT') forceEndCurrentPlayerDraftTurn(roomID);
+        if (phase === 'ARTIFACT_DRAFT') forceEndCurrentArtifactPick(roomID);
+        else if (phase === 'DRAFT') forceEndCurrentPlayerDraftTurn(roomID);
         else if (phase === 'ACTION') forceEndCurrentPlayerActionTurn(roomID);
         else if (phase === 'REFRESH') forceEndCurrentPlayerRefreshTurn(roomID);
     }, durationMs);
@@ -96,36 +97,80 @@ function setupArtifactSupply(numPlayers) {
     return [...g1, ...g2, ...g3, ...g4].map(t => ({ ...t, claimedBy: null }));
 }
 
-function startArtifactSelectionPhase(roomID) {
+// ⚗️ [유물 드래프트 시작] 라운드 시작 시 카드 드래프트보다 먼저 진행
+function startArtifactDraftPhase(roomID) {
     const room = activeRooms[roomID];
     if (!room) return;
-    room.currentServerPhase = 'ARTIFACT_SELECT';
     room.currentArtifactSelectorIdx = 0;
+    // 유물 공급 클리어 (라운드 시작마다 초기화)
+    room.artifactSupply.forEach(a => { a.claimedBy = null; });
     const selector = room.turnSequence[0];
-    const lastId = (room.lastRoundArtifactByPlayer || {})[selector.nickname];
-    io.to(roomID).emit('artifactSelectionStart', {
+    io.to(roomID).emit('artifactDraftStart', {
         artifactSupply: room.artifactSupply,
         currentSelectorID: selector.id,
         currentSelectorNickname: selector.nickname,
-        lastRoundRestrictions: room.lastRoundArtifactByPlayer || {},
-        logMessage: `⚗️ [유물 선택] ${selector.nickname}님, 유물 타일을 선택하세요! (직전 라운드 선택: ${lastId ? ARTIFACT_TILES.find(t=>t.id===lastId)?.nameKo || lastId : '없음'})`
+        lastRoundRestrictions: room.lastRoundArtifactByPlayer || {}
     });
+    startPhaseTimer(roomID, 'ARTIFACT_DRAFT');
 }
 
-function finishArtifactSelectionPhase(roomID) {
+// ⚗️ [유물 드래프트 종료 → 카드 드래프트 시작]
+function startCardDraftPhase(roomID) {
     const room = activeRooms[roomID];
     if (!room) return;
+    room.currentDraftStep = 0;
     room.currentTurnOwnerIndex = 0;
-    const firstActionPlayer = room.turnSequence[0];
-    io.to(roomID).emit('draftPhaseEnded', {
-        marketCards: room.marketCards,
-        firstActionPlayerID: firstActionPlayer.id,
-        firstActionPlayerNickname: firstActionPlayer.nickname,
-        logMessage: `⚗️ 유물 선택 완료! 액션 단계로 넘어갑니다.`,
+    const snakeSeq = room.snakeDraftSequence || generateSnakeDraftSequence(room.turnSequence.length);
+    const firstDraftPlayer = room.turnSequence[snakeSeq[0]];
+    io.to(roomID).emit('artifactDraftComplete', {
+        artifactSupply: room.artifactSupply,
         playerArtifacts: room.artifactSupply.filter(a => a.claimedBy)
     });
-    room.currentServerPhase = 'ACTION';
-    startPhaseTimer(roomID, 'ACTION');
+    io.to(roomID).emit('draftTurnStart', {
+        currentTurnOwnerID: firstDraftPlayer.id,
+        currentTurnOwnerNickname: firstDraftPlayer.nickname,
+        logMessage: `🎲 [카드 드래프트 1/${snakeSeq.length}] 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
+    });
+    startPhaseTimer(roomID, 'DRAFT');
+}
+
+// ⚗️ [유물 드래프트 타임아웃] 현재 선택자가 30초 안에 못 고르면 자동 배정
+function forceEndCurrentArtifactPick(roomID) {
+    const room = activeRooms[roomID];
+    if (!room || room.currentServerPhase !== 'ARTIFACT_DRAFT') return;
+    const selector = room.turnSequence[room.currentArtifactSelectorIdx];
+    if (selector) {
+        const alreadyPicked = room.artifactSupply.find(a => a.claimedBy === selector.nickname);
+        if (!alreadyPicked) {
+            const lastId = (room.lastRoundArtifactByPlayer || {})[selector.nickname];
+            const available = room.artifactSupply.filter(a => !a.claimedBy && a.id !== lastId);
+            const pool = available.length > 0 ? available : room.artifactSupply.filter(a => !a.claimedBy);
+            if (pool.length > 0) {
+                const picked = pool[Math.floor(Math.random() * pool.length)];
+                picked.claimedBy = selector.nickname;
+                if (!room.lastRoundArtifactByPlayer) room.lastRoundArtifactByPlayer = {};
+                room.lastRoundArtifactByPlayer[selector.nickname] = picked.id;
+                io.to(roomID).emit('artifactDraftUpdate', {
+                    artifactSupply: room.artifactSupply,
+                    pickerNickname: selector.nickname,
+                    artifactId: picked.id,
+                    autoAssigned: true
+                });
+            }
+        }
+    }
+    room.currentArtifactSelectorIdx++;
+    if (room.currentArtifactSelectorIdx >= room.turnSequence.length) {
+        startCardDraftPhase(roomID);
+    } else {
+        const next = room.turnSequence[room.currentArtifactSelectorIdx];
+        io.to(roomID).emit('artifactDraftNext', {
+            currentSelectorID: next.id,
+            currentSelectorNickname: next.nickname,
+            lastRoundRestrictions: room.lastRoundArtifactByPlayer || {}
+        });
+        startPhaseTimer(roomID, 'ARTIFACT_DRAFT');
+    }
 }
 
 // ⏰ [강제 마감 - 드래프트 인당] 현재 픽이 끝나면(찜 완료 or 60초 만료 or 완료 버튼) 호출된다.
@@ -163,19 +208,14 @@ function forceEndCurrentPlayerDraftTurn(roomID) {
     const snakeSeq = room.snakeDraftSequence || generateSnakeDraftSequence(room.turnSequence.length);
     if (room.currentDraftStep >= snakeSeq.length) {
         room.currentTurnOwnerIndex = 0;
-        // 아티팩츠 확장이 활성화된 경우 유물 선택 페이즈로 이동
-        if (room.expansions && room.expansions.artifacts && room.artifactSupply && room.artifactSupply.length > 0) {
-            startArtifactSelectionPhase(roomID);
-        } else {
-            const firstActionPlayer = room.turnSequence[0];
-            io.to(roomID).emit('draftPhaseEnded', {
-                marketCards: room.marketCards,
-                firstActionPlayerID: firstActionPlayer.id,
-                firstActionPlayerNickname: firstActionPlayer.nickname,
-                logMessage: `🎲 모든 플레이어의 드래프트가 완료되었습니다. 액션 단계로 넘어갑니다!`
-            });
-            startPhaseTimer(roomID, 'ACTION');
-        }
+        const firstActionPlayer = room.turnSequence[0];
+        io.to(roomID).emit('draftPhaseEnded', {
+            marketCards: room.marketCards,
+            firstActionPlayerID: firstActionPlayer.id,
+            firstActionPlayerNickname: firstActionPlayer.nickname,
+            logMessage: `🎲 모든 플레이어의 드래프트가 완료되었습니다. 액션 단계로 넘어갑니다!`
+        });
+        startPhaseTimer(roomID, 'ACTION');
     } else {
         const nextOwnerIdx = snakeSeq[room.currentDraftStep];
         room.currentTurnOwnerIndex = nextOwnerIdx;
@@ -314,14 +354,18 @@ function advanceToNextRound(roomID) {
         turnSequence: room.turnSequence
     });
 
-    const firstDraftPlayer = room.turnSequence[0];
-    io.to(roomID).emit('draftTurnStart', {
-        currentTurnOwnerID: firstDraftPlayer.id,
-        currentTurnOwnerNickname: firstDraftPlayer.nickname,
-        logMessage: `🎲 [드래프트 1/${marketSize}] 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
-    });
-
-    startPhaseTimer(roomID, 'DRAFT');
+    // 확장판이면 유물 드래프트 먼저, 기본판이면 카드 드래프트 바로 시작
+    if (room.expansions && room.expansions.artifacts && room.artifactSupply && room.artifactSupply.length > 0) {
+        startArtifactDraftPhase(roomID);
+    } else {
+        const firstDraftPlayer = room.turnSequence[0];
+        io.to(roomID).emit('draftTurnStart', {
+            currentTurnOwnerID: firstDraftPlayer.id,
+            currentTurnOwnerNickname: firstDraftPlayer.nickname,
+            logMessage: `🎲 [드래프트 1/${marketSize}] 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
+        });
+        startPhaseTimer(roomID, 'DRAFT');
+    }
 }
 
 // 🏆 [라운드 종료 시점 점수 집계] 이번 라운드에 환기 정산을 마치며 보낸 점수/전장 카드 수를 모은다.
@@ -769,14 +813,18 @@ io.on('connection', (socket) => {
             artifactSupply: room.artifactSupply || []
         });
 
-        const firstDraftPlayer = finalTurnOrder[0];
-        io.to(roomID).emit('draftTurnStart', {
-            currentTurnOwnerID: firstDraftPlayer.id,
-            currentTurnOwnerNickname: firstDraftPlayer.nickname,
-            logMessage: `🎲 [드래프트 1/${room.snakeDraftSequence.length}] 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
-        });
-
-        startPhaseTimer(roomID, 'DRAFT');
+        // 확장판이면 유물 드래프트 먼저, 기본판이면 카드 드래프트 바로 시작
+        if (room.expansions && room.expansions.artifacts && room.artifactSupply && room.artifactSupply.length > 0) {
+            startArtifactDraftPhase(roomID);
+        } else {
+            const firstDraftPlayer = finalTurnOrder[0];
+            io.to(roomID).emit('draftTurnStart', {
+                currentTurnOwnerID: firstDraftPlayer.id,
+                currentTurnOwnerNickname: firstDraftPlayer.nickname,
+                logMessage: `🎲 [드래프트 1/${room.snakeDraftSequence.length}] 첫 번째 드래프터: [ ${firstDraftPlayer.nickname} ] (60초)`
+            });
+            startPhaseTimer(roomID, 'DRAFT');
+        }
     }
 
     // ⚙️ [아티팩츠 확장 토글] 방장만 변경 가능
@@ -789,11 +837,11 @@ io.on('connection', (socket) => {
         io.to(roomID).emit('expansionUpdated', { artifacts: room.expansions.artifacts });
     });
 
-    // ⚗️ [유물 선택] 사냥 단계 후 각 플레이어가 유물 타일 1개 선택
-    socket.on('action_pickArtifact', (data) => {
+    // ⚗️ [유물 드래프트 찜] 드래프트 시작 시 유물 타일에 마커 드래그로 찜
+    socket.on('action_claimArtifact', (data) => {
         const { roomID, artifactId } = data;
         const room = activeRooms[roomID];
-        if (!room || room.currentServerPhase !== 'ARTIFACT_SELECT') return;
+        if (!room || room.currentServerPhase !== 'ARTIFACT_DRAFT') return;
 
         const selector = room.turnSequence[room.currentArtifactSelectorIdx];
         if (!selector || selector.id !== socket.id) return;
@@ -803,36 +851,34 @@ io.on('connection', (socket) => {
 
         // 직전 라운드 선택 제한 체크
         const lastId = (room.lastRoundArtifactByPlayer || {})[selector.nickname];
-        if (lastId && lastId === artifactId && room.currentRound > 1) return;
+        if (lastId && lastId === artifactId && room.currentRound > 1) {
+            socket.emit('artifactClaimError', { message: '직전 라운드에 선택한 유물은 연속으로 선택할 수 없습니다.' });
+            return;
+        }
 
         artifact.claimedBy = selector.nickname;
         if (!room.lastRoundArtifactByPlayer) room.lastRoundArtifactByPlayer = {};
         room.lastRoundArtifactByPlayer[selector.nickname] = artifactId;
 
-        io.to(roomID).emit('artifactPickUpdate', {
-            artifactId,
+        io.to(roomID).emit('artifactDraftUpdate', {
+            artifactSupply: room.artifactSupply,
             pickerNickname: selector.nickname,
-            pickerId: selector.id,
-            artifact
+            artifactId,
+            autoAssigned: false
         });
-
-        // 즉발 유물(현자의 돌, 마술피리)은 선택 즉시 효과 발동 안내 — 클라이언트가 처리
-        if (artifact.type === 'instant') {
-            io.to(selector.id).emit('triggerArtifactInstant', { artifact, ownerNickname: selector.nickname });
-        }
 
         room.currentArtifactSelectorIdx++;
         if (room.currentArtifactSelectorIdx >= room.turnSequence.length) {
-            finishArtifactSelectionPhase(roomID);
+            // 즉발 유물 효과는 카드 드래프트 완료 후 액션 단계 초입에 발동
+            startCardDraftPhase(roomID);
         } else {
             const next = room.turnSequence[room.currentArtifactSelectorIdx];
-            const lastIdNext = (room.lastRoundArtifactByPlayer || {})[next.nickname];
-            io.to(roomID).emit('artifactSelectionNext', {
+            io.to(roomID).emit('artifactDraftNext', {
                 currentSelectorID: next.id,
                 currentSelectorNickname: next.nickname,
-                lastRoundRestrictions: room.lastRoundArtifactByPlayer,
-                logMessage: `⚗️ [유물 선택] ${next.nickname}님, 유물 타일을 선택하세요! (직전 제한: ${lastIdNext ? ARTIFACT_TILES.find(t=>t.id===lastIdNext)?.nameKo || lastIdNext : '없음'})`
+                lastRoundRestrictions: room.lastRoundArtifactByPlayer || {}
             });
+            startPhaseTimer(roomID, 'ARTIFACT_DRAFT');
         }
     });
 

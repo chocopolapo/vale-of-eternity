@@ -340,8 +340,9 @@
         .marker-select-status { margin-top: 22px; font-size: 0.9rem; color: #cbd5e1; min-height: 1.4em; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         /* ⚗️ 유물 타일 카드 스타일 */
-        .artifact-tile { background: linear-gradient(150deg, #0e1525 0%, #070912 100%); border: 1.5px solid rgba(229,184,66,0.3); border-radius:8px; padding:10px 12px; min-width:110px; max-width:130px; cursor:pointer; transition:all 0.2s; text-align:center; font-family:'Noto Sans KR',sans-serif; position:relative; }
-        .artifact-tile:hover:not(.artifact-taken):not(.artifact-restricted) { border-color:#e5b842; transform:translateY(-3px); box-shadow:0 6px 20px rgba(229,184,66,0.3); }
+        .artifact-tile { background: linear-gradient(150deg, #0e1525 0%, #070912 100%); border: 1.5px solid rgba(229,184,66,0.3); border-radius:8px; padding:10px 12px; min-width:110px; max-width:130px; cursor:default; transition:all 0.2s; text-align:center; font-family:'Noto Sans KR',sans-serif; position:relative; }
+        .artifact-tile.artifact-droppable { cursor:copy; }
+        .artifact-tile.artifact-drag-over { border-color:#e5b842; box-shadow:0 0 18px rgba(229,184,66,0.5); transform:translateY(-3px); }
         .artifact-tile.artifact-taken { opacity:0.4; cursor:not-allowed; border-color:rgba(229,184,66,0.1); }
         .artifact-tile.artifact-restricted { opacity:0.5; cursor:not-allowed; border-color:rgba(255,100,100,0.3); }
         .artifact-tile.artifact-mine { border-color:#22c55e; box-shadow:0 0 15px rgba(34,197,94,0.4); }
@@ -981,14 +982,6 @@
     </div>
 
     <!-- ⚗️ 유물 선택 오버레이 -->
-    <div id="artifact-select-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:9997; align-items:center; justify-content:center; flex-direction:column; overflow:hidden; background:rgba(0,0,0,0.82); backdrop-filter:blur(4px);">
-        <div style="position:relative; z-index:2; text-align:center; font-family:'Noto Sans KR',sans-serif; max-width:700px; width:95%;">
-            <h2 style="font-size:1.8rem; font-weight:700; letter-spacing:3px; color:#e5b842; text-shadow:0 0 20px rgba(229,184,66,0.5); margin-bottom:6px;">⚗️ 유물 선택</h2>
-            <p id="artifact-select-desc" style="font-size:0.9rem; color:#cbd5e1; margin-bottom:20px;"></p>
-            <div id="artifact-choice-row" style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-bottom:18px;"></div>
-            <p id="artifact-select-status" style="font-size:0.85rem; color:#94a3b8; min-height:1.2em;"></p>
-        </div>
-    </div>
 
     <!-- 🔔 라운드 시작 안내 배너 -->
     <div id="round-banner-overlay">
@@ -1146,22 +1139,43 @@
 
             <div class="center-board">
                 <div class="market-grid-zone">
-                    <div class="board-title">DRAFT MARKET</div>
-                    <div class="market-grid">
-                        <div class="game-card" style="border-color: #ff4d4d;" onclick="openCardModal('불의 정령', '🔥 INSTANT', '3', '상세 설명')"><div class="card-cost">3</div><div class="card-name">불의 정령</div><div class="card-type">🔥 INSTANT</div><div class="card-summary">자원 +1 / 즉발 타격</div></div>
-                        <div class="game-card" style="border-color: #3b82f6;" onclick="openCardModal('심해의 하피', '💧 PASSIVE', '2', '상세 설명')"><div class="card-cost">2</div><div class="card-name">심해의 하피</div><div class="card-type">💧 PASSIVE</div><div class="card-summary">매 턴 종료 시 +1점</div></div>
-                        <div class="game-card" style="border-color: #10b981;" onclick="openCardModal('고대 그리폰', '🍃 ATTACK', '5', '상세 설명')"><div class="card-cost">5</div><div class="card-name">고대 그리폰</div><div class="card-type">🍃 ATTACK</div><div class="card-summary">바람 속성 공 버프</div></div>
-                        <div class="game-card" style="border-color: #e5b842;" onclick="openCardModal('대지의 골렘', '⛰️ PASSIVE', '4', '상세 설명')"><div class="card-cost">4</div><div class="card-name">대지의 골렘</div><div class="card-type">⛰️ PASSIVE</div><div class="card-summary">방어력 및 자원 확보</div></div>
-                        <div class="game-card" style="border-color: #e9d5ff;" onclick="openCardModal('아메지스트 드래곤', '✨ DRAGON', '6', '상세 설명')"><div class="card-cost">6</div><div class="card-name">아메지스트 드래곤</div><div class="card-type">✨ DRAGON</div><div class="card-summary">용족 개수 보너스</div></div>
-                        <div class="game-card" style="border-color: #94a3b8;" onclick="openCardModal('유령 전사', '💀 ATTACK', '3', '상세 설명')"><div class="card-cost">3</div><div class="card-name">유령 전사</div><div class="card-type">💀 ATTACK</div><div class="card-summary">무덤 개수 비례 공격</div></div>
+                    <!-- ⚗️ 드래프트 뷰 네비게이션 (확장판 전용) -->
+                    <div id="draft-view-nav" style="display:none; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px;">
+                        <button id="draft-nav-prev" onclick="switchDraftView(-1)" style="background:rgba(229,184,66,0.12); border:1.5px solid rgba(229,184,66,0.4); color:#e5b842; border-radius:6px; padding:4px 10px; font-size:1rem; cursor:pointer; transition:all 0.15s;">&#9664;</button>
+                        <div id="draft-view-title" style="font-size:0.7rem; font-weight:700; letter-spacing:2px; color:#e5b842; text-align:center; flex:1;">⚗️ ARTIFACT DRAFT</div>
+                        <button id="draft-nav-next" onclick="switchDraftView(1)" style="background:rgba(229,184,66,0.12); border:1.5px solid rgba(229,184,66,0.4); color:#e5b842; border-radius:6px; padding:4px 10px; font-size:1rem; cursor:pointer; transition:all 0.15s;">&#9654;</button>
+                    </div>
+                    <div class="board-title" id="draft-title-normal">DRAFT MARKET</div>
+
+                    <!-- ⚗️ 뷰 1: 유물 드래프트 마켓 (확장판, 드래프트 초반) -->
+                    <div id="artifact-draft-view" style="display:none;">
+                        <div id="artifact-draft-status" style="font-size:0.78rem; color:#94a3b8; margin-bottom:10px; text-align:center; min-height:1.2em;"></div>
+                        <div id="artifact-draft-grid" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; min-height:140px;"></div>
+                        <!-- 유물 전용 마커 트레이 -->
+                        <div class="marker-tray" id="artifact-marker-tray" style="margin-top:10px;">
+                            <span class="marker-tray-label">ARTIFACT MARKER</span>
+                            <div class="marker-slot" id="artifact-marker-slot" draggable="true" ondragstart="onArtifactMarkerDragStart(event)" style="background:radial-gradient(circle,#e5b842 0%,#92610a 100%); border-color:rgba(229,184,66,0.6);">🔮</div>
+                            <span class="marker-tray-hint">마커를 유물 위로 드래그하면 찜이 돼요</span>
+                        </div>
                     </div>
 
-                    <div class="marker-tray">
-                        <span class="marker-tray-label">MY MARKERS</span>
-                        <div class="marker-slot" id="marker-slot-1" draggable="true" ondragstart="onMarkerDragStart(event, 1)">📌</div>
-                        <div class="marker-slot" id="marker-slot-2" draggable="true" ondragstart="onMarkerDragStart(event, 2)">📌</div>
-                        <span class="marker-tray-hint">마커를 카드 위로 드래그하면 찜이 돼요</span>
-                        <button id="draft-end-btn" style="display:none; margin-left:8px; padding:4px 12px; background:rgba(96,165,250,0.2); border:1px solid #60a5fa; border-radius:4px; color:#60a5fa; font-size:0.8rem; font-family:'Noto Sans KR',sans-serif; cursor:pointer; white-space:nowrap;" onclick="endDraftTurn()">드래프트 완료 ✓</button>
+                    <!-- 뷰 2: 카드 드래프트 마켓 (기존) -->
+                    <div id="card-draft-view">
+                        <div class="market-grid">
+                            <div class="game-card" style="border-color: #ff4d4d;" onclick="openCardModal('불의 정령', '🔥 INSTANT', '3', '상세 설명')"><div class="card-cost">3</div><div class="card-name">불의 정령</div><div class="card-type">🔥 INSTANT</div><div class="card-summary">자원 +1 / 즉발 타격</div></div>
+                            <div class="game-card" style="border-color: #3b82f6;" onclick="openCardModal('심해의 하피', '💧 PASSIVE', '2', '상세 설명')"><div class="card-cost">2</div><div class="card-name">심해의 하피</div><div class="card-type">💧 PASSIVE</div><div class="card-summary">매 턴 종료 시 +1점</div></div>
+                            <div class="game-card" style="border-color: #10b981;" onclick="openCardModal('고대 그리폰', '🍃 ATTACK', '5', '상세 설명')"><div class="card-cost">5</div><div class="card-name">고대 그리폰</div><div class="card-type">🍃 ATTACK</div><div class="card-summary">바람 속성 공 버프</div></div>
+                            <div class="game-card" style="border-color: #e5b842;" onclick="openCardModal('대지의 골렘', '⛰️ PASSIVE', '4', '상세 설명')"><div class="card-cost">4</div><div class="card-name">대지의 골렘</div><div class="card-type">⛰️ PASSIVE</div><div class="card-summary">방어력 및 자원 확보</div></div>
+                            <div class="game-card" style="border-color: #e9d5ff;" onclick="openCardModal('아메지스트 드래곤', '✨ DRAGON', '6', '상세 설명')"><div class="card-cost">6</div><div class="card-name">아메지스트 드래곤</div><div class="card-type">✨ DRAGON</div><div class="card-summary">용족 개수 보너스</div></div>
+                            <div class="game-card" style="border-color: #94a3b8;" onclick="openCardModal('유령 전사', '💀 ATTACK', '3', '상세 설명')"><div class="card-cost">3</div><div class="card-name">유령 전사</div><div class="card-type">💀 ATTACK</div><div class="card-summary">무덤 개수 비례 공격</div></div>
+                        </div>
+                        <div class="marker-tray">
+                            <span class="marker-tray-label">MY MARKERS</span>
+                            <div class="marker-slot" id="marker-slot-1" draggable="true" ondragstart="onMarkerDragStart(event, 1)">📌</div>
+                            <div class="marker-slot" id="marker-slot-2" draggable="true" ondragstart="onMarkerDragStart(event, 2)">📌</div>
+                            <span class="marker-tray-hint">마커를 카드 위로 드래그하면 찜이 돼요</span>
+                            <button id="draft-end-btn" style="display:none; margin-left:8px; padding:4px 12px; background:rgba(96,165,250,0.2); border:1px solid #60a5fa; border-radius:4px; color:#60a5fa; font-size:0.8rem; font-family:'Noto Sans KR',sans-serif; cursor:pointer; white-space:nowrap;" onclick="endDraftTurn()">드래프트 완료 ✓</button>
+                        </div>
                     </div>
                 </div>
 
@@ -1642,74 +1656,151 @@
             logMessage(`🌟 [${data.nickname}] 님이 ${TURN_ORDER_MARKER_LABEL[data.marker]} 마커를 선택했습니다.`);
         });
 
-        // ⚗️ 유물 선택 페이즈 핸들러
+        // ⚗️ 유물 드래프트 핸들러 (새 구조: 카드 드래프트 이전에 드래그-찜 방식으로 진행)
         function getArtifactImgUrl(id) { return `artifacts/${id}.png`; }
 
-        function renderArtifactChoices(supply, restrictions) {
-            const row = document.getElementById('artifact-choice-row');
-            if (!row) return;
-            row.innerHTML = '';
+        let artifactDraftRestrictions = {}; // { 닉네임: 직전라운드선택ID }
+        let isMyArtifactDraftTurn = false;
+
+        function renderArtifactDraftGrid(supply, restrictions, currentSelectorID) {
+            const grid = document.getElementById('artifact-draft-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
             supply.forEach(a => {
                 const isTaken = !!a.claimedBy;
-                const isRestricted = restrictions && restrictions[userNickname] === a.id && currentRound > 1;
+                const isRestricted = !!(restrictions[userNickname] && restrictions[userNickname] === a.id && currentRound > 1);
+                const isMyArtifact = a.claimedBy === userNickname;
+                let cls = 'artifact-tile';
+                if (isMyArtifact) cls += ' artifact-mine';
+                else if (isTaken) cls += ' artifact-taken';
+                else if (isRestricted) cls += ' artifact-restricted';
+                else if (isMyArtifactDraftTurn) cls += ' artifact-droppable';
+
                 const div = document.createElement('div');
-                div.className = 'artifact-tile' + (isTaken ? ' artifact-taken' : '') + (isRestricted ? ' artifact-restricted' : '');
+                div.className = cls;
+                div.dataset.artifactId = a.id;
                 div.title = a.desc || '';
                 const imgUrl = getArtifactImgUrl(a.id);
-                div.innerHTML = `<img class="artifact-art-img" src="${imgUrl}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" alt="${a.nameKo}"><span class="artifact-emoji" style="display:none">${a.emoji}</span><div class="artifact-name">${a.nameKo}</div><div class="artifact-type-badge artifact-type-${a.type}">${a.type === 'action' ? '행동' : a.type === 'instant' ? '즉발' : '지속'}</div>${isTaken ? `<div style="font-size:0.62rem; color:#64748b; margin-top:4px;">${a.claimedBy}</div>` : ''}${isRestricted ? `<div style="font-size:0.62rem; color:#f87171; margin-top:4px;">직전 선택 (불가)</div>` : ''}`;
-                if (!isTaken && !isRestricted) {
-                    div.onclick = () => {
-                        socket.emit('action_pickArtifact', { roomID: currentRoomID, artifactId: a.id });
-                        const overlay = document.getElementById('artifact-select-overlay');
-                        if (overlay) overlay.style.display = 'none';
-                    };
+                const claimedLabel = a.claimedBy ? `<div style="font-size:0.62rem; color:${isMyArtifact ? '#86efac' : '#64748b'}; margin-top:4px;">${isMyArtifact ? '✓ 내 선택' : a.claimedBy}</div>` : '';
+                const restrictedLabel = isRestricted ? `<div style="font-size:0.62rem; color:#f87171; margin-top:4px;">직전 선택 (불가)</div>` : '';
+                div.innerHTML = `<img class="artifact-art-img" src="${imgUrl}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" alt="${a.nameKo}"><span class="artifact-emoji" style="display:none">${a.emoji}</span><div class="artifact-name">${a.nameKo}</div><div class="artifact-type-badge artifact-type-${a.type}">${a.type === 'action' ? '행동' : a.type === 'instant' ? '즉발' : '지속'}</div>${claimedLabel}${restrictedLabel}`;
+
+                if (!isTaken && !isRestricted && isMyArtifactDraftTurn) {
+                    div.addEventListener('dragover', (e) => { e.preventDefault(); div.classList.add('artifact-drag-over'); });
+                    div.addEventListener('dragleave', () => div.classList.remove('artifact-drag-over'));
+                    div.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        div.classList.remove('artifact-drag-over');
+                        if (e.dataTransfer.getData('text/plain') === 'artifact-marker') {
+                            claimArtifact(a.id);
+                        }
+                    });
                 }
-                row.appendChild(div);
+                grid.appendChild(div);
             });
         }
 
-        socket.on('artifactSelectionStart', (data) => {
-            if (data.logMessage) logMessage(data.logMessage);
-            currentArtifactSupply = data.artifactSupply || [];
-            const overlay = document.getElementById('artifact-select-overlay');
-            const desc = document.getElementById('artifact-select-desc');
-            const status = document.getElementById('artifact-select-status');
-            if (desc) desc.innerText = `${data.currentSelectorNickname}님이 유물을 선택합니다.`;
-            if (status) status.innerText = '';
-            renderArtifactChoices(data.artifactSupply || [], data.lastRoundRestrictions || {});
-            // 내 차례이면 선택 오버레이 열기
-            if (overlay) overlay.style.display = data.currentSelectorID === socket.id ? 'flex' : 'none';
-            updateArtifactSupplyUI();
-        });
+        function claimArtifact(artifactId) {
+            if (!isMyArtifactDraftTurn) return;
+            socket.emit('action_claimArtifact', { roomID: currentRoomID, artifactId });
+        }
 
-        socket.on('artifactSelectionNext', (data) => {
-            if (data.logMessage) logMessage(data.logMessage);
-            const overlay = document.getElementById('artifact-select-overlay');
-            const desc = document.getElementById('artifact-select-desc');
-            if (desc) desc.innerText = `${data.currentSelectorNickname}님이 유물을 선택합니다.`;
-            renderArtifactChoices(currentArtifactSupply, data.lastRoundRestrictions || {});
-            if (overlay) overlay.style.display = data.currentSelectorID === socket.id ? 'flex' : 'none';
-        });
+        function onArtifactMarkerDragStart(event) {
+            if (!isMyArtifactDraftTurn) { event.preventDefault(); return; }
+            event.dataTransfer.setData('text/plain', 'artifact-marker');
+        }
 
-        socket.on('artifactPickUpdate', (data) => {
-            // 공급 목록에서 해당 유물을 claimed로 표시
-            const found = currentArtifactSupply.find(a => a.id === data.artifactId);
-            if (found) found.claimedBy = data.pickerNickname;
-            // 내가 선택한 유물이면 저장
-            if (data.pickerNickname === userNickname) {
-                myArtifact = data.artifact || found;
-                myArtifactUsed = false;
-                updateMyArtifactUI();
-                logMessage(`⚗️ [유물 획득] [${myArtifact?.nameKo}] 획득! ${myArtifact?.desc || ''}`);
-            } else {
-                logMessage(`⚗️ ${data.pickerNickname}님이 [${data.artifact?.nameKo || data.artifactId}] 유물을 선택했습니다.`);
+        function setArtifactDraftTurn(isMyTurn, selectorNickname) {
+            isMyArtifactDraftTurn = isMyTurn;
+            const marker = document.getElementById('artifact-marker-slot');
+            const status = document.getElementById('artifact-draft-status');
+            if (marker) {
+                marker.classList.toggle('used', !isMyTurn);
+                marker.setAttribute('draggable', isMyTurn ? 'true' : 'false');
             }
+            if (status) status.innerText = isMyTurn ? '✨ 내 차례! 유물 마커를 드래그하여 찜하세요.' : `⏳ ${selectorNickname}님이 유물을 선택 중...`;
+        }
+
+        // 드래프트 뷰 전환 (artifact ↔ card)
+        let currentDraftView = 'card';
+        function setDraftView(view) {
+            currentDraftView = view;
+            const artifactView = document.getElementById('artifact-draft-view');
+            const cardView = document.getElementById('card-draft-view');
+            const nav = document.getElementById('draft-view-nav');
+            const normalTitle = document.getElementById('draft-title-normal');
+            const viewTitle = document.getElementById('draft-view-title');
+            if (view === 'artifact') {
+                if (artifactView) artifactView.style.display = 'block';
+                if (cardView) cardView.style.display = 'none';
+                if (nav) nav.style.display = 'flex';
+                if (normalTitle) normalTitle.style.display = 'none';
+                if (viewTitle) viewTitle.innerText = '⚗️ ARTIFACT DRAFT';
+            } else {
+                if (artifactView) artifactView.style.display = 'none';
+                if (cardView) cardView.style.display = 'block';
+                if (nav && expansionEnabled) nav.style.display = 'flex';
+                else if (nav) nav.style.display = 'none';
+                if (normalTitle) normalTitle.style.display = expansionEnabled ? 'none' : 'block';
+                if (viewTitle) viewTitle.innerText = '📜 CARD DRAFT';
+            }
+        }
+        function switchDraftView(dir) {
+            setDraftView(currentDraftView === 'artifact' ? 'card' : 'artifact');
+        }
+
+        // ─── 새 이벤트 핸들러 ───
+        socket.on('artifactDraftStart', (data) => {
+            currentArtifactSupply = data.artifactSupply || [];
+            artifactDraftRestrictions = data.lastRoundRestrictions || {};
+            const isMyTurn = data.currentSelectorID === socket.id;
+            setArtifactDraftTurn(isMyTurn, data.currentSelectorNickname);
+            // 유물 마커 리셋
+            const marker = document.getElementById('artifact-marker-slot');
+            if (marker) { marker.classList.remove('used'); marker.setAttribute('draggable', 'true'); }
+            renderArtifactDraftGrid(currentArtifactSupply, artifactDraftRestrictions, data.currentSelectorID);
+            setDraftView('artifact');
+            logMessage(`⚗️ [유물 드래프트 시작] ${data.currentSelectorNickname}님부터 유물을 선택합니다.`);
+        });
+
+        socket.on('artifactDraftNext', (data) => {
+            artifactDraftRestrictions = data.lastRoundRestrictions || {};
+            const isMyTurn = data.currentSelectorID === socket.id;
+            setArtifactDraftTurn(isMyTurn, data.currentSelectorNickname);
+            renderArtifactDraftGrid(currentArtifactSupply, artifactDraftRestrictions, data.currentSelectorID);
+            if (isMyTurn) logMessage(`⚗️ [유물 드래프트] 내 차례입니다! 유물 마커를 드래그하세요.`);
+            else logMessage(`⚗️ [유물 드래프트] ${data.currentSelectorNickname}님이 선택 중...`);
+        });
+
+        socket.on('artifactDraftUpdate', (data) => {
+            currentArtifactSupply = data.artifactSupply || [];
+            const found = currentArtifactSupply.find(a => a.id === data.artifactId);
+            if (data.pickerNickname === userNickname) {
+                myArtifact = found || null;
+                myArtifactUsed = false;
+                // 유물 마커 사용 처리
+                const marker = document.getElementById('artifact-marker-slot');
+                if (marker) { marker.classList.add('used'); marker.setAttribute('draggable', 'false'); }
+                isMyArtifactDraftTurn = false;
+                updateMyArtifactUI();
+                logMessage(`⚗️ [유물 획득] [${found?.nameKo || data.artifactId}] ${data.autoAssigned ? '자동 배정!' : '찜 완료!'} ${found?.desc || ''}`);
+            } else {
+                logMessage(`⚗️ ${data.pickerNickname}님이 [${found?.nameKo || data.artifactId}] 유물을${data.autoAssigned ? ' (자동)' : ''} 선택했습니다.`);
+            }
+            renderArtifactDraftGrid(currentArtifactSupply, artifactDraftRestrictions, null);
             updateArtifactSupplyUI();
         });
 
-        socket.on('triggerArtifactInstant', (data) => {
-            // 즉발 유물 효과: 현자의 돌, 마술피리
-            if (data.artifact) resolveArtifactInstantEffect(data.artifact);
+        socket.on('artifactDraftComplete', (data) => {
+            currentArtifactSupply = data.artifactSupply || [];
+            isMyArtifactDraftTurn = false;
+            logMessage(`⚗️ [유물 드래프트 완료] 카드 드래프트로 넘어갑니다.`);
+            setDraftView('card');
+            updateArtifactSupplyUI();
+        });
+
+        socket.on('artifactClaimError', (data) => {
+            logMessage(`⚠️ ${data.message || '유물 선택 불가'}`);
         });
 
         socket.on('artifactUsed', (data) => {
@@ -1724,11 +1815,12 @@
             logMessage(`⚗️ ${data.ownerNickname}님이 [${data.artifact?.nameKo || data.artifactId}] 유물 행동 사용 후 반환했습니다.`);
         });
 
+        socket.on('triggerArtifactInstant', (data) => {
+            if (data.artifact) resolveArtifactInstantEffect(data.artifact);
+        });
+
         socket.on('artifactsReturned', (data) => {
             currentArtifactSupply = data.artifactSupply || [];
-            myArtifact = null;
-            myArtifactUsed = false;
-            updateMyArtifactUI();
             updateArtifactSupplyUI();
         });
 
@@ -1912,6 +2004,11 @@
                 expansionEnabled = !!data.expansions.artifacts;
                 if (expansionEnabled) {
                     currentArtifactSupply = data.artifactSupply || [];
+                    // 네비 표시 설정 (초기에는 숨김 - artifactDraftStart에서 열림)
+                    const nav = document.getElementById('draft-view-nav');
+                    const normalTitle = document.getElementById('draft-title-normal');
+                    if (nav) nav.style.display = 'none';
+                    if (normalTitle) normalTitle.style.display = 'none';
                     updateArtifactSupplyUI();
                     logMessage(`⚗️ [아티팩츠 확장] 활성! 확장 카드 28장 + 유물 타일 포함. 종료 점수: 80점`);
                 }
@@ -2198,6 +2295,10 @@
         // 🎲 [드래프트 턴 시작] 서버가 알려주는 현재 드래프터 정보를 받아 UI를 갱신한다.
         socket.on('draftTurnStart', (data) => {
             if (data.logMessage) logMessage(data.logMessage);
+
+            // 카드 드래프트 시작 → card 뷰로 전환
+            if (expansionEnabled) setDraftView('card');
+            isMyArtifactDraftTurn = false;
 
             const idx = gameTurnOrder.findIndex(p => p.id === data.currentTurnOwnerID);
             if (idx !== -1) currentTurnIndex = idx;
@@ -4828,6 +4929,13 @@
             logMessage(`👑 [라운드 업] 이번 라운드의 새로운 선플레이어는 [ ${players[0]} ] 님입니다!`);
             if (typeof updateMarketUI === 'function') updateMarketUI();
             if (typeof resetMyMarkers === 'function') resetMyMarkers();
+            // 유물 마커 리셋 (확장판)
+            const artifactMarker = document.getElementById('artifact-marker-slot');
+            if (artifactMarker) { artifactMarker.classList.remove('used'); artifactMarker.setAttribute('draggable', 'true'); }
+            isMyArtifactDraftTurn = false;
+            myArtifact = null;
+            myArtifactUsed = false;
+            updateMyArtifactUI();
             if (typeof renderRivalStatusUI === 'function') renderRivalStatusUI();
         });
 
