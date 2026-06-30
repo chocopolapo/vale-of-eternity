@@ -1422,10 +1422,11 @@
 
         function confirmCreateRoom() {
             if (!selectedGameMode) return;
+            const mode = selectedGameMode; // capture before closeCreateRoomModal resets it
             closeCreateRoomModal();
             const finalNickname = (typeof userNickname !== 'undefined' && userNickname) ? userNickname : "방장 테이머";
-            const expansions = { artifacts: selectedGameMode === 'artifacts' };
-            logMessage(`🏰 [방 생성 요청] [${selectedGameMode === 'artifacts' ? '⚗️ 아티팩츠 확장' : '📜 기본판'}] 모드로 방을 개설합니다...`);
+            const expansions = { artifacts: mode === 'artifacts' };
+            logMessage(`🏰 [방 생성 요청] [${mode === 'artifacts' ? '⚗️ 아티팩츠 확장' : '📜 기본판'}] 모드로 방을 개설합니다...`);
             socket.emit('createRoom', { nickname: finalNickname, expansions });
         }
 
