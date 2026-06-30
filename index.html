@@ -1586,6 +1586,7 @@
 
         // 🌟🌙☀️ [선플레이어 결정 - 마커 선택] 관련 상태
         const TURN_ORDER_MARKER_IMG = { star: 'landing-assets/star.png', moon: 'landing-assets/moon.png', sun: 'landing-assets/sun.png', cloud: 'landing-assets/cloud_token.png' };
+        const ARTIFACT_MARKER_IMG = { star: 'landing-assets/star_artifact.png', moon: 'landing-assets/moon_artifact.png', sun: 'landing-assets/sun_artifact.png', cloud: 'landing-assets/cloud_artifact.png' };
         const TURN_ORDER_MARKER_LABEL = { star: '별', moon: '달', sun: '해', cloud: '구름' };
         let myMarkerPick = null;
         let markerCountdownInterval = null;
@@ -1742,9 +1743,21 @@
             artifactDraftRestrictions = data.lastRoundRestrictions || {};
             const isMyTurn = data.currentSelectorID === socket.id;
             setArtifactDraftTurn(isMyTurn, data.currentSelectorNickname);
-            // 유물 마커 리셋
+            // 유물 마커 리셋 + 내 마커 이미지 적용
             const marker = document.getElementById('artifact-marker-slot');
-            if (marker) { marker.classList.remove('used'); marker.setAttribute('draggable', 'true'); }
+            if (marker) {
+                marker.classList.remove('used');
+                marker.setAttribute('draggable', 'true');
+                const myMarkerType = playerMarkerMap[userNickname];
+                const artifactImgSrc = myMarkerType && ARTIFACT_MARKER_IMG[myMarkerType];
+                if (artifactImgSrc) {
+                    marker.innerHTML = `<img src="${artifactImgSrc}" alt="${myMarkerType}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+                    marker.style.background = 'transparent';
+                    marker.style.border = '2px solid rgba(229,184,66,0.6)';
+                } else {
+                    marker.innerHTML = '🔮';
+                }
+            }
             renderArtifactDraftGrid(currentArtifactSupply, artifactDraftRestrictions, data.currentSelectorID);
             setDraftView('artifact');
             logMessage(`⚗️ [유물 드래프트 시작] ${data.currentSelectorNickname}님부터 유물을 선택합니다.`);
@@ -4895,7 +4908,7 @@
             logMessage(`👑 [라운드 업] 이번 라운드의 새로운 선플레이어는 [ ${players[0]} ] 님입니다!`);
             if (typeof updateMarketUI === 'function') updateMarketUI();
             if (typeof resetMyMarkers === 'function') resetMyMarkers();
-            // 유물 마커 리셋 (확장판)
+            // 유물 마커 리셋 (확장판) — artifactDraftStart에서 이미지가 다시 세팅됨
             const artifactMarker = document.getElementById('artifact-marker-slot');
             if (artifactMarker) { artifactMarker.classList.remove('used'); artifactMarker.setAttribute('draggable', 'true'); }
             isMyArtifactDraftTurn = false;
